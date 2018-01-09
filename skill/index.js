@@ -170,3 +170,7 @@ function getDeviceStatus( alexa ) {
         alexa.emit(':tell', "I'm sorry Dave, I can't do that");
     })
 }
+
+function updateDevice( stuff ) {
+    return true;
+}
