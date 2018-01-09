@@ -28,3 +28,15 @@ and AWS Lambda code for the Alexa Skill
 - AWS Websocket MQTT Client (and the libraries it requires)
 - ArduinoJSON
 - ESP8266 hardware libraries
+
+## Setting Up AWS
+### Create a Thing
+### Create a lambda Role
+### Create the lambda function
+## Setting Up Amazon Alexa
+### Create a new Skill
+## Build the Thermometer
+### Set up Arduino IDE
+### Load and build the code
+### Flash the device
+### Test
