@@ -65,6 +65,7 @@ long connection = 0;
 /*     MAIN  */
 
 // bunch of globals for our state
+String cooking_mode = "-- Ready --";
 boolean in_alarm_state = false;
 int currentTemp = -127; // initializing to -127 should trigger an update on reset
 boolean watching_high = false;
@@ -235,7 +236,8 @@ void updateDisplay() {
   // what we're cooking
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(0, 20);
-  display.print("YOGURT");
+  // TODO center
+  display.print( cooking_mode );
 
   // current temperature
   display.setFont(&FreeSans9pt7b);
@@ -281,11 +283,6 @@ int arrivedcount = 0;
 // callback to handle thing shadow delta messages
 // these are settings that we must change to reflect the desired state
 
-// {"version":89,
-//  "timestamp":1515358980,
-//  "state":{"alarm_low":"43"},
-//  "metadata":{"alarm_low":{"timestamp":1515358980}}}
-
 void messageArrived(MQTT::MessageData& md) {
   MQTT::Message &message = md.message;
 
@@ -305,14 +302,36 @@ void messageArrived(MQTT::MessageData& md) {
   Serial.println(msg);
 
   // convert the JSON text to an object
-  DynamicJsonBuffer jsonBuffer;
+  // the delta Shadow object will look like this:
+  // {"version":192,
+  //  "timestamp":1515548804,
+  //  "state":{
+  //    "alarm_high":88,
+  //    "mode":"Yogurt"},
+  // "metadata":{"alarm_high":{"timestamp":1515548804},"mode":{"timestamp":1515548804}}}
+  //
+  // assume all the state is a REQUESTED state
+  // assume any missing items might be things we need to unset?
+
+  const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_ARRAY_SIZE(2) + 60;
+  DynamicJsonBuffer jsonBuffer(capacity);
+  
   JsonObject& response = jsonBuffer.parseObject(msg);
   if (response.success() && response["state"]) {
     Serial.println("parsed Json");
+    
+    // Extract values
+    Serial.println(F("Response:"));
+    int new_high = response["state"]["alarm_high"].as<int>();
+    int new_low = response["state"]["alarm_low"].as<int>();
+    const char *new_mode = response["state"]["mode"].as<char*>();
+    Serial.println(new_high);
+    Serial.println(new_low);
+    Serial.println(new_mode);
+
 
     // update any items in the state
-    if ( response["state"]["alarm_high"] ) {
-      int new_high = response["state"]["alarm_high"];
+    if ( new_high ) {
       Serial.print("Desired high: ");
       Serial.println(new_high);
       watching_high = true;
@@ -323,8 +342,7 @@ void messageArrived(MQTT::MessageData& md) {
       }
     }
 
-    if ( response["state"]["alarm_low"] ) {
-      int new_low = response["state"]["alarm_low"];
+    if ( new_low ) {
       Serial.print("Desired low: ");
       Serial.println(new_low);
       watching_low = true;
@@ -335,7 +353,14 @@ void messageArrived(MQTT::MessageData& md) {
       }
     }
 
+    if ( new_mode ) {
+      Serial.println("Cooking mode: ");
+      Serial.println(new_mode);
+      cooking_mode = new_mode;
+    }
+
     // TODO send an update to the shadow API
+    updateShadow();
 
     // update the display
     updateDisplay();
@@ -415,24 +440,36 @@ void subscribe() {
 
 // send an update to the Thing shadow
 void updateShadow() {
+    Serial.println("updating device shadow");
+    Serial.println( AWS_TOPIC_UPDATE(THING_ID) );
+    
     MQTT::Message message;
-    char buf[100];
-    // TODO use Arduino JSON
-    String payload = "";
-    payload = payload + "{\"state\":{\"reported\":{\"temperature\":";
-    payload = payload + String( currentTemp );
-    // TODO add alarm_high & alarm_low
-    payload = payload + "}}}";
-
     
     Serial.println( currentTemp );
-    Serial.println(payload);
-    strcpy(buf, payload.c_str() );
+
+    StaticJsonBuffer<500> jsonBuffer;
+    JsonObject& payload = jsonBuffer.createObject();
+    JsonObject& state = payload.createNestedObject("state");
+    JsonObject& reported = state.createNestedObject("reported");
+    
+    reported["temperature"] = currentTemp;
+    reported["mode"] = cooking_mode;
+    if ( alarm_high ) {
+      reported["alarm_high"] = alarm_high;
+    }
+    if ( alarm_low ) {
+      reported["alarm_low"] = alarm_low;
+    }
+    payload.printTo(Serial);
+    Serial.println();
+
+    char buf[501];
+    payload.printTo(buf, 500);
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
     message.payload = (void*)buf;
     message.payloadlen = strlen(buf)+1;
     int rc = client->publish(AWS_TOPIC_UPDATE(THING_ID), message); 
-    Serial.println( AWS_TOPIC_UPDATE(THING_ID) );
+
 }
