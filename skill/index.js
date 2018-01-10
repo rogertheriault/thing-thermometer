@@ -1,11 +1,15 @@
 /* eslint-disable  func-names */
 /* eslint quote-props: ["error", "consistent"]*/
 /**
+ * An AWS IoT ESP8266 "kitchen/bbq" thermometer
+ * 
  * This is the Alexa Skill for https://github.com/rogertheriault/thing-thermometer
  * 
  * It allows the user to control the thermometer alarm setpoints and obtain the
  * current temperature (and maybe one day, get notified of an alarm state)
  * 
+ * Copyright (c) 2018 Roger Theriault
+ * Licensed under the MIT license.
  **/
 
 'use strict';
@@ -22,8 +26,6 @@ var alexa = {};
 const languageStrings = {
     'en': {
         translation: {
-            FACTS: [
-            ],
             SKILL_NAME: 'Kitchen Helper',
             NOW_LETS_COOK: "OK, the thermometer is ready to go! ",
             HELP_MESSAGE: 'You can cook yogurt or ricotta, or you can set the thermometer. What can I help you with?',
