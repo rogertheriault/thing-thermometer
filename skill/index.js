@@ -16,6 +16,9 @@ var AWS = require('aws-sdk');
 const Alexa = require('alexa-sdk');
 const CDN = process.env.CDN;
 
+// global so we can avoid passing this to callbacks, there's just no need
+var alexa = {};
+
 const languageStrings = {
     'en': {
         translation: {
@@ -52,7 +55,7 @@ const handlers = {
         this.emit(':ask', "Welcome! Are we cooking today?");
     },
     'getStatusIntent': function () {
-        getDeviceStatus( this ); // TODO unhack
+        getDeviceStatus();
         //this.emit(':tellWithCard', "The temperature is 79 degrees", this.t('SKILL_NAME'),
         //    "The temperature is 79 degrees" );
     },
@@ -66,28 +69,43 @@ const handlers = {
         let displayText = "";
         if (slots.foodToCook.value) {
             const food = slots.foodToCook.value;
+            let desired = {
+                alarm_high: null,
+                alarm_low: null
+            };
             switch (food) {
                 case 'yogurt':
                     // set max first
                     responseText = "I love " + food +
                         "! Start heating milk in a pot. Insert the probe in the milk.";
-                    displayText = "Making Yogurt. Insert probe in milk and start heating."
-                    updateDevice({food: food, response: responseText, max: 88});
+                    displayText = "Making Yogurt\nInsert probe in milk and start heating."
+                    this.response.speak(responseText);
+                    desired.alarm_high = 88; // new high temp
+                    desired.mode = 'Yogurt';
+                    updateDevice(desired);
                     break;
+                case 'ricotta cheese':
                 case 'ricotta':
                     responseText = "OK, " + food + " it is." +
                         "Start heating milk in a pot. Insert the probe in the milk.";
-                    displayText = "Making Ricotta Cheese. Insert probe in milk and start heating."
+                    displayText = "Making Ricotta Cheese\nInsert probe in milk and start heating."
+                    this.response.speak(responseText);
+                    desired.alarm_high = 88; // new high temp
+                    desired.mode = 'Ricotta';
+                    updateDevice(desired);
                     break;
                 default:
-                    responseText = "I can't handle making " + food + " yet, Sorry. You can ask me to set the high or low temperature.";
+                    responseText = "I can't handle making " + food + " yet, Sorry." +
+                        " Would you like to set the high or low temperature?";
                     // can't cook that yet, please set a temperature
-                    displayText = "Unable to help with " + food +
-                        ". Set a max or min temperature.";
+                    // displayText = "Unable to help with " + food +
+                    //     ". Set a max or min temperature.";
+                    this.emit(':ask', responseText, "Please say that again?");
                     break;
             }
         }
 
+        // TODO move some of this to helpers
         // Create speech output
         const speechOutput = responseText; //this.t('NOW_LETS_COOK') + responseText;
  
@@ -132,10 +150,13 @@ const handlers = {
     },
 };
 
-exports.handler = function (event, context) {
-    const alexa = Alexa.handler(event, context);
-    // SIGH alexa.appId = process.env.APP_ID;
+exports.handler = function (event, context, callback) {
+    alexa = Alexa.handler(event, context, callback);
+    alexa.appId = process.env.APP_ID; // or, we may need to check what the event sent
+    // and reject this request
     // To enable string internationalization (i18n) features, set a resources object.
+    console.log(event);
+    console.log(context);
     alexa.resources = languageStrings;
     alexa.registerHandlers(handlers);
     alexa.execute();
@@ -145,9 +166,10 @@ exports.handler = function (event, context) {
  * fetch a Thing's shadow state before responding to the user
  * 
  * This is reasonably fast but we might also want to try Alexa's new async
- * responses
+ * responses i.e. Progressive Response
  */
-function getDeviceStatus( alexa ) {
+function getDeviceStatus() {
+    console.log("getting device status");
     var thing = new AWS.IotData({endpoint: process.env.THING_API});
     var params = {
         // TODO get via user's ID
@@ -156,8 +178,10 @@ function getDeviceStatus( alexa ) {
     thing.getThingShadow(params, function (err, data) {
         if (err) {
             // do something
+            console.log('getThingShadow error:');
             console.log(err);
         } else {
+            console.log('getThingShadow success:');
             console.log(data);
             var shadow = JSON.parse(data.payload);
             console.log(shadow);
@@ -168,9 +192,38 @@ function getDeviceStatus( alexa ) {
             }
         }
         alexa.emit(':tell', "I'm sorry Dave, I can't do that");
-    })
+    });
 }
 
-function updateDevice( stuff ) {
-    return true;
+/*
+ * request a device shadow change and then respond to the user
+ * 
+ * We're passing the Alexa reference so we can call it
+ */
+function updateDevice(desired) {
+    console.log("controlling a device");
+    console.log(desired);
+    var thing = new AWS.IotData({endpoint: process.env.THING_API});
+    var payload = { 
+        state: {
+            desired: desired
+        }
+    };
+    var params = {
+        // TODO get via user's ID
+        thingName: process.env.THING_NAME,
+        payload: JSON.stringify(payload)
+    };
+    thing.updateThingShadow(params, function (err, data) {
+        if (err) {
+            // do something
+            console.log('updateThingShadow error:');
+            console.log(err);
+            alexa.emit(':tell', "Oh gosh, something went wrong!");
+        } else {
+            console.log('updateThingShadow success:');
+            console.log(data);
+            alexa.emit(':responseReady');
+        }
+    });
 }
