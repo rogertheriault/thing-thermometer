@@ -1,6 +1,6 @@
 // An AWS IoT ESP8266 "kitchen/bbq" thermometer
 //
-// See https://github.com/rogertheriault/aws-esp8266-thermometer
+// See https://github.com/rogertheriault/thing-thermometer
 //
 // Copyright (c) 2018 Roger Theriault
 // Licensed under the MIT license.

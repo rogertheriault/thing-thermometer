@@ -1,9 +1,14 @@
-# aws-esp8266-thermometer
+# thing-thermometer
 
-## An AWS IoT Kitchen / BBQ Thermometer
+## An AWS IoT "Thing" Kitchen / BBQ Thermometer
 
 This project includes Arduino ESP8266 code for the device,
 and AWS Lambda code for the Alexa Skill
+
+A temperature probe with a display can be controlled through Alexa:
+- choose a food to cook and the high or low alarm temperatures are set automatically
+- the probe displays the current step, the temperature and set point, and alerts the user when the heat should be adjusted or shut off
+- Alexa can supply the current status at any time
 
 ## Requirements
 ### AWS
