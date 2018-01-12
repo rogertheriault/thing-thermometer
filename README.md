@@ -10,6 +10,10 @@ A temperature probe with a display can be controlled through Alexa:
 - the probe displays the current step, the temperature and set point, and alerts the user when the heat should be adjusted or shut off
 - Alexa can supply the current status at any time
 
+![photo of e-paper display](img/display?raw=true "Thermometer probe display")
+
+![Fritzing breadboard diagram](img/fritzing-nodisplay.png?raw=true "Breadboard (without e-paper)")
+
 ## Requirements
 ### AWS
 - an AWS account
@@ -17,9 +21,8 @@ A temperature probe with a display can be controlled through Alexa:
 ### Hardware Components
 - ESP8266 device, such as Adafruit HUZZAH
 - USB programming cable (usually, a micro-usb DATA cable)
-- (optional) E-paper display, I am using a 1.54" red-black-white display
+- (optional) E-paper display, I am using a 1.54" red-black-white display, you can also use oLED, or omit the display
 - DS18B20 thermometer probe
-- one NeoPixel LED, I used a 5mm diffused LED
 - piezo buzzer
 - 4.7K ohm resistor
 - pushbutton
