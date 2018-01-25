@@ -1,0 +1,316 @@
+{
+    "languageModel": {
+      "types": [
+        {
+          "name": "AMAZON.Food",
+          "values": [
+            {
+              "id": null,
+              "name": {
+                "value": "ricotta",
+                "synonyms": [
+                  "ricotta cheese"
+                ]
+              }
+            },
+            {
+              "id": null,
+              "name": {
+                "value": "yogurt",
+                "synonyms": []
+              }
+            }
+          ]
+        },
+        {
+          "name": "heat_or_cool_modes",
+          "values": [
+            {
+              "id": null,
+              "name": {
+                "value": "heat",
+                "synonyms": [
+                  "cook to",
+                  "exceeds",
+                  "goes above",
+                  "over"
+                ]
+              }
+            },
+            {
+              "id": null,
+              "name": {
+                "value": "cool",
+                "synonyms": [
+                  "below",
+                  "down to",
+                  "chill",
+                  "under"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.MoreIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateSettingsIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PageDownIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PageUpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PreviousIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ScrollDownIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ScrollLeftIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ScrollRightIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ScrollUpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "changeTemperatureIntent",
+          "samples": [
+            "change the target {heatOrCool} to {newTemp}",
+            "notify me when the thermometer {heatOrCool} {newTemp}",
+            "set the {heatOrCool} temperature to {newTemp}",
+            "{heatOrCool} the liquid to {newTemp}",
+            "change the temperature"
+          ],
+          "slots": [
+            {
+              "name": "heatOrCool",
+              "type": "heat_or_cool_modes"
+            },
+            {
+              "name": "newTemp",
+              "type": "AMAZON.NUMBER",
+              "samples": [
+                "Set it to {newTemp}",
+                "a {heatOrCool} of {newTemp}"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "cookSomethingIntent",
+          "samples": [
+            "I'd like to make {foodToCook}",
+            "I'm making {foodToCook}"
+          ],
+          "slots": [
+            {
+              "name": "foodToCook",
+              "type": "AMAZON.Food",
+              "samples": [
+                "{foodToCook}",
+                "I'm making {foodToCook}",
+                "a pot of {foodToCook}"
+              ]
+            },
+            {
+              "name": "maxTemp",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "minTemp",
+              "type": "AMAZON.NUMBER"
+            }
+          ]
+        },
+        {
+          "name": "getStatusIntent",
+          "samples": [
+            "What is the temperature",
+            "Is it done yet",
+            "How hot is it",
+            "Has it cooled",
+            "What's the status",
+            "Tell me the temperature",
+            "Is the alarm set"
+          ],
+          "slots": []
+        },
+        {
+          "name": "nextStepIntent",
+          "samples": [
+            "Go to the next step",
+            "Stop the alarm",
+            "Next step"
+          ],
+          "slots": []
+        }
+      ],
+      "invocationName": "thermometer skill"
+    },
+    "prompts": [
+      {
+        "id": "Elicit.Intent-changeTemperatureIntent.IntentSlot-heatOrCool",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "Are we heating or cooling now?"
+          },
+          {
+            "type": "PlainText",
+            "value": "Did you want to set a minimum, or maximum, temperature?"
+          },
+          {
+            "type": "PlainText",
+            "value": "Will that be below {newTemp} or above {newTemp}?"
+          }
+        ]
+      },
+      {
+        "id": "Elicit.Intent-changeTemperatureIntent.IntentSlot-newTemp",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "What temperature would you like?"
+          },
+          {
+            "type": "PlainText",
+            "value": "What temperature should it alarm at?"
+          },
+          {
+            "type": "PlainText",
+            "value": "What temperature do you want to {heatOrCool} to?"
+          },
+          {
+            "type": "PlainText",
+            "value": "How {heatOrCool} should it get, in degrees?"
+          }
+        ]
+      },
+      {
+        "id": "Elicit.Intent-cookSomethingIntent.IntentSlot-foodToCook",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "What would you like to cook?"
+          },
+          {
+            "type": "PlainText",
+            "value": "Which food are you cooking?"
+          },
+          {
+            "type": "PlainText",
+            "value": "What are you cooking today?"
+          }
+        ]
+      },
+      {
+        "id": "Confirm.Intent-nextStepIntent",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "Would you like to stop the alarm and go on to the next recipe step?"
+          }
+        ]
+      }
+    ],
+    "dialog": {
+      "intents": [
+        {
+          "name": "changeTemperatureIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "heatOrCool",
+              "type": "heat_or_cool_modes",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.Intent-changeTemperatureIntent.IntentSlot-heatOrCool"
+              }
+            },
+            {
+              "name": "newTemp",
+              "type": "AMAZON.NUMBER",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.Intent-changeTemperatureIntent.IntentSlot-newTemp"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cookSomethingIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "foodToCook",
+              "type": "AMAZON.Food",
+              "elicitationRequired": true,
+              "confirmationRequired": false,
+              "prompts": {
+                "elicitation": "Elicit.Intent-cookSomethingIntent.IntentSlot-foodToCook"
+              }
+            },
+            {
+              "name": "maxTemp",
+              "type": "AMAZON.NUMBER",
+              "elicitationRequired": false,
+              "confirmationRequired": false,
+              "prompts": {}
+            },
+            {
+              "name": "minTemp",
+              "type": "AMAZON.NUMBER",
+              "elicitationRequired": false,
+              "confirmationRequired": false,
+              "prompts": {}
+            }
+          ]
+        },
+        {
+          "name": "nextStepIntent",
+          "confirmationRequired": true,
+          "prompts": {
+            "confirmation": "Confirm.Intent-nextStepIntent"
+          },
+          "slots": []
+        }
+      ]
+    }
+  }
