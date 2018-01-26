@@ -14,12 +14,15 @@
 // user button on GPIO3
 #define BUTTONPIN 3
 
-#include <ESP8266WiFiMulti.h>
-#include <ArduinoOTA.h>
+#include "FS.h"
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoOTA.h>
+
 
 // globals for our state
-String cooking_mode = "-- Ready --";
+String cooking_mode = "";
 boolean in_alarm_state = false;
 int currentTemp = -127; // initializing to -127 should trigger an update on reset
 boolean watching_high = false;
@@ -28,6 +31,8 @@ int alarm_high = 0;
 int alarm_low = 0;
 int button_state = 0;
 int recipe_step = 0;
+String recipe_step_text = "measuring";
+String recipe_title = "Kitchen Helper";
 
 
 #include "display.h"
@@ -41,6 +46,7 @@ int recipe_step = 0;
 void setup() {
   // Serial port for debugging
   Serial.begin(115200);
+  SPIFFS.begin();
 
   // initialize the display
   display.init();
@@ -54,6 +60,7 @@ void setup() {
   setup_OTA();
   setup_sensors();
   setup_alarm();
+  setup_recipe_data();
 
   setup_awsiot();
   

@@ -27,27 +27,15 @@ void updateDisplay() {
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(0, 20);
   // TODO center
-  display.print( cooking_mode );
+  display.print( recipe_title );
 
   // current temperature & step
   display.setFont(&FreeSans9pt7b);
   display.setCursor(0, 40);
-  // TODO get the message from a recipe structure
-  switch (recipe_step) {
-    case 1:
-      display.print("Step 1: heating milk");
-      break;
-    case 2:
-      display.print("Step 2: cooling milk");
-      break;
-    case 3:
-      display.print("Done. Pitch culture");
-      break;
-    case 0:
-    default:
-      display.print("measuring");
-      break;
-  }
+
+
+  display.print( recipe_step_text );
+
   display.setCursor(0, 114);
   display.print("CURRENT");
   display.setCursor(10, 128);
@@ -58,10 +46,17 @@ void updateDisplay() {
   if (in_alarm_state) {
     display.setTextColor(GxEPD_RED);
   }
-  display.setFont(&FreeSansBold18pt7b);
-  display.setCursor(100, 130);
-  display.print(currentTemp);
-  display.println("C");
+  if (currentTemp > -100) {
+    display.setFont(&FreeSansBold18pt7b);
+    display.setCursor(100, 130);
+    display.print(currentTemp);
+    display.println("C");
+  } else {
+    display.setTextColor(GxEPD_RED);
+    display.setCursor(100, 130);
+    // TODO icon here
+    display.println("probe!");
+  }
 
   // if alarm is enabled show target temp(s)
   if (watching_high || watching_low) {

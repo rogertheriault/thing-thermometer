@@ -1,0 +1,30 @@
+{
+    "recipes": {
+        "yogurt": {
+            "title": "Yogurt",
+            "step1": {
+                "text": "Heating milk",
+                "alarm_high": 82
+            },
+            "step2": {
+                "text": "Cooling milk",
+                "alarm_low": 43
+            },
+            "step3": {
+                "text": "Add starter culture",
+                "complete": true
+            }
+        },
+        "ricotta": {
+            "title": "Ricotta Cheese",
+            "step1": {
+                "text": "Heating milk",
+                "alarm_high": 77
+            },
+            "step2": {
+                "text": "Heat off. Add acid",
+                "complete": true
+            }
+        }
+    }
+}

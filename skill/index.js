@@ -149,7 +149,7 @@ const handlers = {
             desired.alarm_high = firstStep.alarm_high || null;
             desired.alarm_low = firstStep.alarm_low || null;
             desired.timer = firstStep.timer || null;
-            desired.mode = recipe.title;
+            desired.mode = recipe.id;
             desired.step = 1; // start at 1
 
             // save state
@@ -203,7 +203,7 @@ const handlers = {
         this.response.speak(responseText);
         desired.alarm_high = 0;
         desired.alarm_low = 0;
-        desired.mode = '-- READY --';
+        desired.mode = "";
         desired.step = 0;
         this.attributes["recipe"] = undefined;
         this.attributes["step"] = undefined;
@@ -337,6 +337,7 @@ function getRecipe(slot) {
  * Once the ID is set, it can be accessed in attributes["thingId"]
  * 
  * The callback is called once the attribute is set
+ * NOTE this only needs to be called when a new session starts
  * 
  * @param {object} sess - main Alexa object
  * @param {function} callback - callback to execute after id retrieved
