@@ -34,6 +34,8 @@ A temperature probe with a display can be controlled through Alexa:
 - 4.7K ohm resistor
 - pushbutton
 - breadboard and wires
+### Wiring it up
+- 
 ### Arduino Libraries
 - The Arduino IDE (latest version)
 - Adafruit GFX

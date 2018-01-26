@@ -1,0 +1,65 @@
+[
+    {
+        "id": "yogurt",
+        "title": "Yogurt",
+        "description": "Simple yogurt recipe with milk on the stove",
+        "slots": [
+            "yogurt"
+        ],
+        "speak": "I love Yogurt!",
+        "probes": [
+            "liquid"
+        ],
+        "img": null,
+        "link": "http://www.yogourmet.com/ca-en/dir-slider?dir_id=65",
+        "steps": [
+            {
+                "step": 1,
+                "summary": "Heating milk",
+                "alarm_high": 82,
+                "speak": "Start heating milk in a pot. Insert the probe in the milk.",
+                "display": "Insert probe in milk and start heating"
+            },
+            {
+                "step": 2,
+                "summary": "Cooling milk",
+                "alarm_low": 43,
+                "speak": "Shut off the heat and let the milk cool.",
+                "display": "Shut off heat and let milk cool"
+            },
+            {
+                "step": 3,
+                "summary": "Add starter culture",
+                "recipe": "complete",
+                "speak": "Milk is cool, remove probe and add starter culture, then incubate. Enjoy your yogurt!",
+                "display": "Remove probe from milk and add culture"
+            }
+        ]
+    },
+    {
+        "id": "ricotta",
+        "title": "Ricotta Cheese",
+        "description": "Easy Ricotta with milk and acid",
+        "speak": "OK, ricotta cheese is easy!",
+        "slots": [
+            "ricotta",
+            "ricotta cheese"
+        ],
+        "steps": [
+            {
+                "step": 1,
+                "summary": "Heating milk",
+                "alarm_high": 77,
+                "speak": "Start heating milk in a pot. Insert the probe in the milk.",
+                "display": "Insert probe in milk and start heating"
+            },
+            {
+                "step": 2,
+                "summary": "Heat off. Add acid",
+                "recipe": "complete",
+                "speak": "Your milk is ready. Turn off the heat and add your vinegar or citric acid.",
+                "display": "Shut off heat and add acids"
+            }
+        ]
+    }
+]
