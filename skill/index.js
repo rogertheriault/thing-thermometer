@@ -208,7 +208,7 @@ const handlers = {
         this.attributes["recipe"] = undefined;
         this.attributes["step"] = undefined;
         this.attributes["started"] = undefined;
-        this.attributed["timestamp"] = Date.now();
+        this.attributes["timestamp"] = Date.now();
         updateDevice(this, desired);
         this.emit(':tell', this.t('STOP_MESSAGE'));
     },
@@ -347,6 +347,7 @@ function setUserThingId(sess, callback) {
         console.log("using thing " + sess.attributes["thingId"]);
         if ( callback ) {
             callback( sess.attributes["thingId"] );
+            return;
         }
     }
 
