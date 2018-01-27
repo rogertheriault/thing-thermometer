@@ -79,7 +79,7 @@ const handlers = {
         })
     },
     'getStatusIntent': function () {
-        getDeviceStatus();
+        getDeviceStatus(this);
         //this.emit(':tellWithCard', "The temperature is 79 degrees", this.t('SKILL_NAME'),
         //    "The temperature is 79 degrees" );
     },
