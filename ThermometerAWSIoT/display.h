@@ -17,12 +17,37 @@
 GxIO_Class io(SPI, SS, 0, 2); // D3(=0), D4(=2)
 GxEPD_Class display(io); // D4(=2), D2(=4)
 
+
+
 // update the e-paper display
 void updateDisplay() {
+  if ( ! display_update) {
+    return;
+  }
+  display_update = false;
   
   display.fillScreen(GxEPD_WHITE);
   display.setTextColor(GxEPD_BLACK);
- 
+
+  Serial.print(F("DISPLAY heap size: "));
+  Serial.println(ESP.getFreeHeap());
+  /*
+  // test
+  // get a bitmap and size from a SPIFFS file
+  uint16_t bmW, bmH;
+  uint8_t *myBitmap = getBitmapFromFS("/yogurt.bin", bmW, bmH);
+  display.drawBitmap(myBitmap, 0, 30, bmW, bmH, GxEPD_BLACK);
+  Serial.print(F("DRAW heap size: \n"));
+  Serial.println(ESP.getFreeHeap());
+  display.update();
+  Serial.print(F("UPDATE heap size: "));
+  Serial.println(ESP.getFreeHeap());
+  //delete [] myBitmap;
+  Serial.print(F("DELETE heap size: "));
+  Serial.println(ESP.getFreeHeap());
+  return;
+   */
+   
   // what we're cooking
   display.setFont(&FreeSansBold12pt7b);
   display.setCursor(0, 20);
@@ -37,9 +62,9 @@ void updateDisplay() {
   display.print( recipe_step_text );
 
   display.setCursor(0, 114);
-  display.print("CURRENT");
+  display.print(F("CURRENT"));
   display.setCursor(10, 128);
-  display.print("TEMP");
+  display.print(F("TEMP"));
   display.setCursor(0, 32);
 
   // if the alarm's on, temp should be red
@@ -50,12 +75,12 @@ void updateDisplay() {
     display.setFont(&FreeSansBold18pt7b);
     display.setCursor(100, 130);
     display.print(currentTemp);
-    display.println("C");
+    display.println(F("C"));
   } else {
     display.setTextColor(GxEPD_RED);
     display.setCursor(100, 130);
     // TODO icon here
-    display.println("probe!");
+    display.println(F("probe!"));
   }
 
   // if alarm is enabled show target temp(s)
@@ -63,17 +88,17 @@ void updateDisplay() {
     display.setFont(&FreeSansBold12pt7b);
     display.setTextColor(GxEPD_RED);
     display.setCursor(0, 90);
-    display.print("TARGET: ");
+    display.print(F("TARGET: "));
     if (watching_low) {
       display.print(alarm_low);
     }
     if (watching_low && watching_high) {
-      display.print("-");
+      display.print(F("-"));
     }
     if (watching_high) {
       display.print(alarm_high);
     }
-    display.print("C");
+    display.print(F("C"));
   }
 
   display.update();

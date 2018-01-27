@@ -1,5 +1,5 @@
 {
-  "name": "alexa-skill-kit-sdk-factskill",
+  "name": "alexa-thing-thermometer-skill",
   "version": "1.0.0",
   "private": true,
   "dependencies": {

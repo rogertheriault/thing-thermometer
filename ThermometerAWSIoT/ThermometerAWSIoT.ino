@@ -18,7 +18,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
-#include <ArduinoOTA.h>
 
 
 // globals for our state
@@ -27,6 +26,8 @@ boolean in_alarm_state = false;
 int currentTemp = -127; // initializing to -127 should trigger an update on reset
 boolean watching_high = false;
 boolean watching_low = false;
+boolean display_update = true;
+boolean shadow_update = true;
 int alarm_high = 0;
 int alarm_low = 0;
 int button_state = 0;
@@ -34,7 +35,7 @@ int recipe_step = 0;
 String recipe_step_text = "measuring";
 String recipe_title = "Kitchen Helper";
 
-
+#include "thingdata.h";
 #include "display.h"
 #include "sensors.h"
 #include "awsiot.h"
@@ -46,6 +47,9 @@ String recipe_title = "Kitchen Helper";
 void setup() {
   // Serial port for debugging
   Serial.begin(115200);
+  Serial.print(F("heap size: "));
+  Serial.println(ESP.getFreeHeap());
+  
   SPIFFS.begin();
 
   // initialize the display
@@ -57,7 +61,6 @@ void setup() {
 
   // set everything up
   setup_wifi();
-  setup_OTA();
   setup_sensors();
   setup_alarm();
   setup_recipe_data();
@@ -68,14 +71,14 @@ void setup() {
     subscribe();
     //updateShadow();
   }
+  Serial.print(F("setup heap size: "));
+  Serial.println(ESP.getFreeHeap());
 }
 
 // keep track of when our last temperature reading was taken
 long lastReading = 0;
 
 void loop() {
-  // remove if there's no need to OTA update
-  ArduinoOTA.handle();
 
   check_button();
   check_alarm();
@@ -102,9 +105,11 @@ void loop() {
 
     // if something has changed, update the shadow and display
     if ( needUpdate ) {
-      updateShadow();
-      updateDisplay();
+      shadow_update = true;
+      display_update = true;
     }
+    Serial.print(F("LOOP heap size: "));
+    Serial.println(ESP.getFreeHeap());
   }
 
 
@@ -117,6 +122,9 @@ void loop() {
       subscribe();      
     }
   }
+
+  updateShadow();
+  updateDisplay();
 
 }
 
@@ -145,31 +153,6 @@ void beep(unsigned char delayms) {
 
 
 
-
-void setup_OTA() {
-  delay(10);
-  //ArduinoOTA.setHostname("Lounge");
-
-  ArduinoOTA.onStart([]() {
-    Serial.println("Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
- ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-});
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-   
-}
 
 // check the sensor state
 // returns true if one of our limits was exceeded, false otherwise
