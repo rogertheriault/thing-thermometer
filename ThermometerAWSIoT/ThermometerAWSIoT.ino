@@ -21,7 +21,9 @@
 
 
 // globals for our state
-String cooking_mode = "";
+String default_step_text = "\"Alexa, ask Kitchen Helper to make yogurt\"";
+String default_title = "Kitchen Helper";
+String cooking_mode = "measure";
 boolean in_alarm_state = false;
 int currentTemp = -127; // initializing to -127 should trigger an update on reset
 boolean watching_high = false;
@@ -32,8 +34,9 @@ int alarm_high = 0;
 int alarm_low = 0;
 int button_state = 0;
 int recipe_step = 0;
-String recipe_step_text = "measuring";
-String recipe_title = "Kitchen Helper";
+String recipe_step_text = default_step_text;
+String recipe_title = default_title;
+
 
 #include "thingdata.h";
 #include "display.h"
@@ -82,6 +85,9 @@ void loop() {
 
   check_button();
   check_alarm();
+
+  // TODO
+  //check_thermometers();
   
   long now = millis();
   // check temp every 10 seconds - TODO use watchdog timer
@@ -125,7 +131,7 @@ void loop() {
 
   updateShadow();
   updateDisplay();
-
+  checkModeTimer();
 }
 
 
@@ -157,6 +163,12 @@ void beep(unsigned char delayms) {
 // check the sensor state
 // returns true if one of our limits was exceeded, false otherwise
 boolean shouldAlarm( ) {
+  if ( alarm_high == 0 ) {
+    watching_high = false;
+  }
+  if ( alarm_low == 0 ) {
+    watching_low = false;
+  }
   if ( watching_high && ( currentTemp >= alarm_high ) ) {
     watching_high = false;
     return true;

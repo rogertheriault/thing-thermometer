@@ -49,9 +49,85 @@ void setup_wifi() {
     Serial.println ("\nconnected");
 }
 
+/** 
+ * send an update request to the Thing shadow
+ * 
+ * This sends desired state rather than reported state... it happens when 
+ * a user interactes with the device or the recipe ends and times out
+ * 
+ * TODO add params
+ */
+void doUpdateDesired() {
+
+    Serial.println("DESIRED device shadow");
+    Serial.println( AWS_TOPIC_UPDATE(THING_ID) );
+    
+    MQTT::Message message;
+    
+    //{"state":{"desired":{"mode":"measure","alarm_high":null,"alarm_low":null,"step":0}}}
+
+    char buf[] = "{\"state\":{\"desired\":{\"mode\":\"measure\",\"alarm_high\":null,\"alarm_low\":null,\"step\":0}}}";
+    message.qos = MQTT::QOS0;
+    message.retained = false;
+    message.dup = false;
+    message.payload = (void*)buf;
+    message.payloadlen = strlen(buf)+1;
+    int rc = client->publish(AWS_TOPIC_UPDATE(THING_ID), message); 
+    Serial.println(buf);
+}
+
+/** 
+ * mode timer logic, purpose is to give the user 60(or more?) seconds after the last 
+ * step of a recipe
+ * 
+ */
+// TODO move to a Helpers file?
+boolean modeTimerSet = false;
+unsigned long modeTimerExpires;
+
+void endRecipeMode(int seconds) {
+  modeTimerSet = true;
+  modeTimerExpires = millis() + seconds * 1000;
+  // todo set what should be displayed
+}
+
+void checkModeTimer() {
+  if (! modeTimerSet) {
+    return;
+  }
+  Serial.print(F("timer tick: "));
+  Serial.println((modeTimerExpires - millis()) / 1000);
+  if (millis() >= modeTimerExpires) {
+    modeTimerSet = false;
+    // TODO run a callback
+    doUpdateDesired();
+  }
+}
 
 
+/**
+ * Update the state to a new recipe / step
+ * 
+ * This modifies our state, based on the pre-sets in the recipes.json file
+ * Much of the Received Update logic may move here
+ * 
+ * @param String recipeid id of the recipe
+ * @paran String step step number from 1 to N
+ */
 void setRecipeStep(String recipeid, String step) {
+
+  // special case, skip the recipe list
+  if ( recipeid == "measure" ) {
+    cooking_mode = "measure";
+    recipe_step = 0;
+    in_alarm_state = false;
+
+    recipe_step_text = default_step_text;
+    recipe_title = default_title;
+    // TODO go to sleep after screen updates?
+    return;
+  }
+    
   // Set current recipe info into our "state"
   File file = SPIFFS.open("/recipes.json", "r");
   if ( !file ) {
@@ -98,6 +174,14 @@ void setRecipeStep(String recipeid, String step) {
     alarm_low = new_low;
     recipe_step_text = steptext;
     recipe_title = title;
+
+    // check alarm state
+
+    // check recipe completion
+    if ( isComplete ) {
+      // set a timer for 1 minute, then go out of recipe mode
+      endRecipeMode(60);
+    }
   }
 }
 
@@ -187,8 +271,8 @@ void updateShadow() {
     payload.printTo(Serial);
     Serial.println();
 
-    char buf[501];
-    payload.printTo(buf, 500);
+    char buf[201]; // TODO reduce more?
+    payload.printTo(buf, 200);
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
@@ -254,7 +338,7 @@ void messageArrived(MQTT::MessageData& md) {
 
     // update any items in the state
     if ( new_high ) {
-      Serial.print("Desired high: ");
+      Serial.print(F("Desired high: "));
       Serial.println(new_high);
       watching_high = true;
       alarm_high = new_high;
@@ -265,7 +349,7 @@ void messageArrived(MQTT::MessageData& md) {
     }
 
     if ( new_low ) {
-      Serial.print("Desired low: ");
+      Serial.print(F("Desired low: "));
       Serial.println(new_low);
       watching_low = true;
       alarm_low = new_low;
@@ -277,18 +361,20 @@ void messageArrived(MQTT::MessageData& md) {
  
 
     if ( new_mode ) {
-      Serial.println("Recipe id: ");
+      Serial.print(F("Recipe id: "));
       Serial.println(new_mode);
       cooking_mode = new_mode;
     }
     
     if ( new_step ) {
-      Serial.print("Desired step: ");
+      Serial.print(F("Desired step: "));
       Serial.println(new_step);
       recipe_step = new_step;
     }
+
     
     setRecipeStep(cooking_mode, String(recipe_step));
+
 
     // TODO just set a flag, and let the loop do this
     // update the device shadow with the new state
