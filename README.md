@@ -21,6 +21,11 @@ A temperature probe with a display can be controlled through Alexa:
 
 *"Alexa, ask my thermometer for the status"*
 
+### Voice UI Diagrams
+![diagram of the voice ui](img/basic-recipe-flow.png?raw=true "Basic Recipe Flow")
+
+![diagram of the voice ui](img/unknown-recipe-flow.png?raw=true "Unknown Recipe Flow")
+
 ## Requirements
 ### AWS
 - an AWS account
@@ -29,10 +34,12 @@ A temperature probe with a display can be controlled through Alexa:
 - ESP8266 device, such as Adafruit HUZZAH (if using a display) or Wemos D1 Mini (fewer pins, suitable for display-less projects)
 - USB programming cable (usually, a micro-usb DATA cable)
 - (optional) E-paper display, I am using a 1.54" red-black-white display, you can also use oLED, or omit the display
-- DS18B20 thermometer probe
-- piezo buzzer
+- DS18B20 thermometer probe (for immersion)
+- thermocouple probe (for bbq & oven)
+- piezo buzzer (to alert someone)
 - 4.7K ohm resistor
-- pushbutton
+- pushbutton (user can silence alarm)
+- neopixel (status and to alert someone)
 - breadboard and wires
 ### Wiring it up
 - 
