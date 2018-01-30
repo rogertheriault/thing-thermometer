@@ -14,7 +14,7 @@ A temperature probe with a display can be controlled through Alexa:
 
 ![photo of e-paper display](img/display.jpg?raw=true "Thermometer probe display")
 
-![Fritzing breadboard diagram](img/fritzing-nodisplay.png?raw=true "Breadboard (without e-paper)")
+![Fritzing breadboard diagram](img/fritzing-nodisplay.jpg?raw=true "Breadboard (without e-paper)")
 
 ### Sample Utterances
 *"Alexa, ask my thermometer to make Yogurt"*
