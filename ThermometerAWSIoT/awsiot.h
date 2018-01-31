@@ -47,6 +47,7 @@ void setup_wifi() {
         Serial.print (".");
     }
     Serial.println ("\nconnected");
+    pixel_wifidone();
 }
 
 /** 
@@ -398,6 +399,7 @@ void subscribe() {
       return;
     }
     Serial.println("MQTT subscribed");
+    pixel_iotdone();
 }
 
 

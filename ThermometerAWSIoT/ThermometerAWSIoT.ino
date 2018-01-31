@@ -20,6 +20,7 @@
 #include <ESP8266HTTPClient.h>
 
 
+
 // globals for our state
 String default_step_text = "\"Alexa, ask Kitchen Helper to make yogurt\"";
 String default_title = "Kitchen Helper";
@@ -37,7 +38,7 @@ int recipe_step = 0;
 String recipe_step_text = default_step_text;
 String recipe_title = default_title;
 
-
+#include "annunciators.h";
 #include "thingdata.h";
 #include "display.h"
 #include "sensors.h"
@@ -63,12 +64,14 @@ void setup() {
   Serial.setDebugOutput(1);
 
   // set everything up
+  setup_pixel();
   setup_wifi();
   setup_sensors();
   setup_alarm();
   setup_recipe_data();
 
   setup_awsiot();
+
   
   if (connect()) {
     subscribe();
@@ -147,6 +150,9 @@ void setup_alarm() {
 void check_alarm() {
   if (in_alarm_state) {
     beep(400);
+    pixel_alarm();
+  } else {
+    pixel_off();
   }
 }
 
