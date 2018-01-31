@@ -138,53 +138,7 @@ void loop() {
 }
 
 
-// piezo buzzer
-void setup_alarm() {
-  pinMode(ALARMPIN, OUTPUT);
-  digitalWrite(ALARMPIN,LOW);
-  beep(50);
-  beep(50);
-  beep(50);
-  in_alarm_state = false;
-}
-void check_alarm() {
-  if (in_alarm_state) {
-    beep(400);
-    pixel_alarm();
-  } else {
-    pixel_off();
-  }
-}
 
-void beep(unsigned char delayms) {
-  analogWrite(ALARMPIN, 96); // best sound from tmb12a05 piezo at 3.3v
-  delay(delayms);
-  analogWrite(ALARMPIN, LOW);
-  delay(delayms);
-}
-
-
-
-
-// check the sensor state
-// returns true if one of our limits was exceeded, false otherwise
-boolean shouldAlarm( ) {
-  if ( alarm_high == 0 ) {
-    watching_high = false;
-  }
-  if ( alarm_low == 0 ) {
-    watching_low = false;
-  }
-  if ( watching_high && ( currentTemp >= alarm_high ) ) {
-    watching_high = false;
-    return true;
-  }
-  if ( watching_low && ( currentTemp <= alarm_low ) ) {
-    watching_low = false;
-    return true;
-  }
-  return false;
-}
 
 
 

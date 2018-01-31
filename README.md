@@ -63,7 +63,11 @@ The device regularly reads the probe temperature(s), looks for changes, and then
 - neopixel (status and to alert someone)
 - breadboard and wires
 ### Wiring it up
-- 
+- NeoPixel: VIN to 3.3v, GND to GND, Data In to GPIO12
+- Piezo Buzzer: 
+- Button:
+- DS18B20:
+- Waveshare 1.54" e-paper: 
 ### Arduino Libraries
 - The Arduino IDE (latest version)
 - Adafruit GFX
