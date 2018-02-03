@@ -4,7 +4,7 @@
 CRGB leds[1];
 
 void setup_pixel() {
-  LEDS.addLeds<WS2811, 12, RGB>(leds, 1);
+  LEDS.addLeds<WS2811, NEOPIXELPIN, RGB>(leds, 1);
   leds[0] = CRGB( 76, 91, 32); // amber
   FastLED.show();
 }
