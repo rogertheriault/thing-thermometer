@@ -103,6 +103,16 @@ Waveshare 1.54" e-paper | 3.3v | 3.3v
 ### Create a new Skill
 ## Build the Thermometer
 ### Set up Arduino IDE
+- The Arduino IDE (latest version)
+### Arduino Libraries
+- ESP8266 and/or ESP32 hardware libraries
+- Adafruit GFX
+- Adafruit Sensors
+- Dallas Temperature library (if using DS18B20)
+- GxEPD e-paper (if using a display)
+- AWS Websocket MQTT Client (and the libraries it requires)
+- ArduinoJSON
+
 ### Load and build the code
 ### Flash the device
 ### Test
