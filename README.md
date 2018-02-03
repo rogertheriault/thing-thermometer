@@ -65,7 +65,7 @@ The device regularly reads the probe temperature(s), looks for changes, and then
 ### Wiring it up
 
 Peripheral | PIN | ESP8266 Pin
---- | --- | --- | --- 
+--- | --- | --- 
 NeoPixel | VIN | 3.3v
 " | GND | GND
 " | Data In | GPIO12
