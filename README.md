@@ -2,6 +2,8 @@
 
 ## An AWS IoT "Thing" Kitchen / BBQ Thermometer
 
+![photo of e-paper display](img/prototype.jpg?raw=true "Thermometer probe display")
+
 This project includes Arduino ESP8266 code for the device,
 and AWS Lambda code for the Alexa Skill
 
@@ -30,12 +32,10 @@ A JSON file contains all the recipes the Alexa Skill can handle, with steps, and
 
 The device regularly reads the probe temperature(s), looks for changes, and then updates its display and the Thing Shadow. It also monitors the shadow's Delta topic, reacting to new commands - start a recipe or go to the next recipe step. It uses the JSON data in the recipes file to know which temperature setpoints to set and what text to display.
 
-(more to come)
 
 
-![photo of e-paper display](img/display.jpg?raw=true "Thermometer probe display")
 
-![Fritzing breadboard diagram](img/fritzing-nodisplay.jpg?raw=true "Breadboard (without e-paper)")
+![Fritzing breadboard diagram](img/fritzing-breadboard.png?raw=true "Breadboard (without e-paper)")
 
 ### Sample Utterances
 *"Alexa, ask my thermometer to make Yogurt"*
@@ -63,11 +63,28 @@ The device regularly reads the probe temperature(s), looks for changes, and then
 - neopixel (status and to alert someone)
 - breadboard and wires
 ### Wiring it up
-- NeoPixel: VIN to 3.3v, GND to GND, Data In to GPIO12
-- Piezo Buzzer: 
-- Button:
-- DS18B20:
-- Waveshare 1.54" e-paper: 
+
+Peripheral | PIN | ESP8266 Pin
+--- | --- | --- | --- 
+NeoPixel | VIN | 3.3v
+" | GND | GND
+" | Data In | GPIO12
+Piezo Buzzer | + | GPIO12
+" | GND | GND
+Momentary Push Button |  | GPIO3 and GND
+DS18B20 | black | GND
+" | red | 3.3v
+" | yellow | GPIO5
+4.7K resistor | needed for DS18B20 | between GPIO5 and 3.3v
+Waveshare 1.54" e-paper | 3.3v | 3.3v
+" | GND | GND
+" | DIN | GPIO13
+" | CLK | GPIO14
+" | CS | GPIO15
+" | DC | GPIO0
+" | RST | GPIO2
+" | BUSY | GPIO4
+
 ### Arduino Libraries
 - The Arduino IDE (latest version)
 - Adafruit GFX
