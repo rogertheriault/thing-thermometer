@@ -5,8 +5,8 @@
 // Copyright (c) 2018 Roger Theriault
 // Licensed under the MIT license.
 
-// uncomment this to use an Adafruit HUZZAH ESP8266 instead of ESP32
-#define USE_ESP8266
+// use this to differentiate code for an Adafruit HUZZAH ESP8266 instead of ESP32
+// #ifdef ESP8266
 
 // copy config-sample.h to config.h and edit it
 #include "config.h"
@@ -29,11 +29,15 @@
 
 
 #include "FS.h"
-#ifdef USE_ESP8266
+#ifdef ESP8266
   #include <ESP8266WiFi.h>
   #include <ESP8266WiFiMulti.h>
   #include <ESP8266HTTPClient.h>
 #else
+  #include <WiFi.h>
+  #include <WiFiMulti.h>
+  #include <HTTPClient.h>
+  #include <SPIFFS.h>
 #endif
 
 
@@ -54,6 +58,8 @@ int button_state = 0;
 int recipe_step = 0;
 String recipe_step_text = default_step_text;
 String recipe_title = default_title;
+const char *aws_topic_update = "$aws/things/ESP8266Test1/shadow/update";
+const char *aws_topic_delta = "$aws/things/ESP8266Test1/shadow/update/delta";
 
 #include "annunciators.h";
 #include "thingdata.h";

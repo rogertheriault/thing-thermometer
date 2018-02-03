@@ -2,8 +2,8 @@
 // define your THING_ID in config.h (or, get from EEPROM)
 
 // these macros are used to set up the topic strings, THING_ID will be inserted in place of x
-#define AWS_TOPIC_UPDATE(x) "$aws/things/"x"/shadow/update"
-#define AWS_TOPIC_SUBSCRIBE(x) "$aws/things/"x"/shadow/update/delta"
+//#define AWS_TOPIC_UPDATE(x) "$aws/things/"x"/shadow/update"
+//#define AWS_TOPIC_SUBSCRIBE(x) "$aws/things/"x"/shadow/update/delta"
 
 #include <AWSWebSocketClient.h>
 // MQTT PAHO
@@ -17,7 +17,11 @@ const int maxMQTTpackageSize = 512;
 const int maxMQTTMessageHandlers = 1;
 AWSWebSocketClient awsWSclient(1000);
 
+#ifdef ESP8266
 ESP8266WiFiMulti WiFiMulti;
+#else
+WiFiMulti WiFiMulti;
+#endif
 
 IPStack ipstack(awsWSclient);
 MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers> *client = NULL;
@@ -61,7 +65,7 @@ void setup_wifi() {
 void doUpdateDesired() {
 
     Serial.println("DESIRED device shadow");
-    Serial.println( AWS_TOPIC_UPDATE(THING_ID) );
+    Serial.println( aws_topic_update );
     
     MQTT::Message message;
     
@@ -73,7 +77,7 @@ void doUpdateDesired() {
     message.dup = false;
     message.payload = (void*)buf;
     message.payloadlen = strlen(buf)+1;
-    int rc = client->publish(AWS_TOPIC_UPDATE(THING_ID), message); 
+    int rc = client->publish( aws_topic_update, message); 
     Serial.println(buf);
 }
 
@@ -249,7 +253,7 @@ void updateShadow() {
     }
     shadow_update = false;
     Serial.println("updating device shadow");
-    Serial.println( AWS_TOPIC_UPDATE(THING_ID) );
+    Serial.println( aws_topic_update );
     
     MQTT::Message message;
     
@@ -279,7 +283,7 @@ void updateShadow() {
     message.dup = false;
     message.payload = (void*)buf;
     message.payloadlen = strlen(buf)+1;
-    int rc = client->publish(AWS_TOPIC_UPDATE(THING_ID), message); 
+    int rc = client->publish( aws_topic_update, message); 
     //delete buf;
 }
 
@@ -390,9 +394,9 @@ void messageArrived(MQTT::MessageData& md) {
 
 // subscribe to the Thing Shadow topic
 void subscribe() {
-    Serial.println( AWS_TOPIC_SUBSCRIBE(THING_ID) );
+    Serial.println( aws_topic_delta );
     // subscribe, supplying messageArrived as the callback for new messages
-    int rc = client->subscribe(AWS_TOPIC_SUBSCRIBE(THING_ID), MQTT::QOS0, messageArrived);
+    int rc = client->subscribe(aws_topic_delta, MQTT::QOS0, messageArrived);
     if (rc != 0) {
       Serial.print("rc from MQTT subscribe is ");
       Serial.println(rc);
