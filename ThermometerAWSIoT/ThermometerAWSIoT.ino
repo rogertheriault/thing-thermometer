@@ -5,19 +5,40 @@
 // Copyright (c) 2018 Roger Theriault
 // Licensed under the MIT license.
 
+// use this to differentiate code for an Adafruit HUZZAH ESP8266 instead of ESP32
+// #ifdef ESP8266
+
 // copy config-sample.h to config.h and edit it
 #include "config.h"
 
 // Piezo Buzzer on GPIO12
-#define ALARMPIN 12 // D6(=12)
+#define ALARMPIN 12 // GPIO12
 
 // user button on GPIO3
-#define BUTTONPIN 3
+#define BUTTONPIN 3 // GPIO3
+
+// one-wire DS18B20 on GPIO5 (add 4.7k pullup)
+#define OWBUS 5 // GPIO5
+
+// NeoPixel / WS2811 data pin
+#define NEOPIXELPIN 12 // GPIO12
+
+// E-Paper
+#define EPAPER_RST 2 // GPIO2
+#define EPAPER_DC 0 // GPIO0
+
 
 #include "FS.h"
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-#include <ESP8266HTTPClient.h>
+#ifdef ESP8266
+  #include <ESP8266WiFi.h>
+  #include <ESP8266WiFiMulti.h>
+  #include <ESP8266HTTPClient.h>
+#else
+  #include <WiFi.h>
+  #include <WiFiMulti.h>
+  #include <HTTPClient.h>
+  #include <SPIFFS.h>
+#endif
 
 
 
@@ -37,6 +58,8 @@ int button_state = 0;
 int recipe_step = 0;
 String recipe_step_text = default_step_text;
 String recipe_title = default_title;
+const char *aws_topic_update = "$aws/things/ESP8266Test1/shadow/update";
+const char *aws_topic_delta = "$aws/things/ESP8266Test1/shadow/update/delta";
 
 #include "annunciators.h";
 #include "thingdata.h";

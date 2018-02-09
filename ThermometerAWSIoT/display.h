@@ -14,9 +14,8 @@
 #include <GxIO/GxIO_SPI/GxIO_SPI.cpp>
 #include <GxIO/GxIO.cpp>
 
-GxIO_Class io(SPI, SS, 0, 2); // D3(=0), D4(=2)
-GxEPD_Class display(io); // D4(=2), D2(=4)
-
+GxIO_Class io(SPI, SS, EPAPER_DC, EPAPER_RST);
+GxEPD_Class display(io);
 
 
 // update the e-paper display

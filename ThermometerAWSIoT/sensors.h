@@ -1,7 +1,6 @@
 #include <DallasTemperature.h>
 
-// one-wire DS18B20 settings
-#define OWBUS 5 // D1(=5)
+
 OneWire oneWire(OWBUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress tempsens;

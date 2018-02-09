@@ -4,7 +4,7 @@
 CRGB leds[1];
 
 void setup_pixel() {
-  LEDS.addLeds<WS2811, 12, RGB>(leds, 1);
+  LEDS.addLeds<WS2811, NEOPIXELPIN, RGB>(leds, 1);
   leds[0] = CRGB( 76, 91, 32); // amber
   FastLED.show();
 }
@@ -31,6 +31,11 @@ void pixel_alarm() {
 }
 
 // piezo buzzer
+#if defined(ARDUINO_ARCH_ESP32)
+void analogWrite(unsigned int pin, unsigned int value) {
+  ledcWrite(pin, value);
+}
+#endif
 
 void beep(unsigned char delayms) {
   analogWrite(ALARMPIN, 96); // best sound from tmb12a05 piezo at 3.3v
@@ -40,7 +45,13 @@ void beep(unsigned char delayms) {
 }
 
 void setup_alarm() {
-  pinMode(ALARMPIN, OUTPUT);
+  #if defined(ARDUINO_ARCH_ESP32)
+      ledcAttachPin(ALARMPIN, 0);
+      ledcSetup(0, 5000, 8);
+  #else
+      pinMode(ALARMPIN, OUTPUT);
+  #endif
+  
   digitalWrite(ALARMPIN,LOW);
   beep(50);
   beep(50);
