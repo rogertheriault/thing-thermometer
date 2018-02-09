@@ -15,12 +15,14 @@
 'use strict';
 
 // include the AWS SDK so we can access IoT and DynamoDB
-var AWS = require('aws-sdk');
+const AWS = require('aws-sdk');
 
-var async = require("async");
+const async = require("async");
 
 const Alexa = require('alexa-sdk');
+
 const CDN = process.env.CDN;
+const PROJECT_SHORTURL = process.env.PROJECT_SHORTURL;
 const recipes = require('./recipes.json');
 
 // Set up a list of recipes that can be used
@@ -34,7 +36,6 @@ const help_options = recipe_options.reduceRight( (previous, current) => {
     return string;
 })
 
-// global so we can avoid passing this to callbacks, there's just no need
 var alexa = {};
 
 const languageStrings = {
@@ -63,26 +64,63 @@ const languageStrings = {
 // heatOrCool = heat, cool
 // newTemp = ??
 
+const states = {
+    COOKING: "_COOK",
+    RECIPE: "_RECIPE", // cooking with a recipe
+    INFORMING: "_INFO" // user needs instructions
+}
+
+// default when no state is set
 const handlers = {
     'LaunchRequest': function () {
         // TODO prompt user to determine the intent
         this.emit('Welcome');
     },
     'Welcome': function () {
-        setUserThingId(this, (thingId) => {
+        setUserThingId.call(this, (thingId) => {
             if ( ! thingId ) {
-                this.emit(':tell', "You'll need to set up a thermometer first");
+                let speechOutput = "You'll need to set up a thermometer first. " +
+                    "I've added a link to your Alexa app with information about " +
+                    "creating your own thermometer";
+                let displayText = "This skill demonstrates controlling an IoT device with Alexa " +
+                    "and Arduino. You can create your own device with the instructions at the " +
+                    "following link: " + PROJECT_SHORTURL;
                 // TODO account linking card and instructions
+                this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
+                    displayText );
+
+                // TODO continue with a virtual device
                 return;
             }
+            // TODO check current state
             this.emit(':ask', "Welcome! Are we cooking today?");
-        })
+        });
+    },
+    // just get the current device status (we're not cooking)
+    'getStatusIntent': function () {
+        getDeviceStatus.call(this);
+    },
+    'cookSomethingIntent': function () {
+        this.handler.state = states.COOKING;
+        this.emitWithState('cookSomethingIntent');
+    },
+    "Unhandled": function() {
+        console.log("UNHANDLED EVENT " + JSON.stringify(this));
+        this.handler.state = states.COOKING;
+        this.emitWithState(this.event.request.intent.name);
+    }
+};
+
+const cookHandlers = Alexa.CreateStateHandler(states.COOKING, {
+    // cooking status
+    'LaunchRequest': function() {
+        console.log('COOKING LaunchRequest');
+        this.emitWithState('getStatusIntent'); 
     },
     'getStatusIntent': function () {
-        getDeviceStatus(this);
-        //this.emit(':tellWithCard', "The temperature is 79 degrees", this.t('SKILL_NAME'),
-        //    "The temperature is 79 degrees" );
+        getDeviceStatus.call(this);
     },
+
     'nextStepIntent': function () {
         // get user's state and then get the next step and update the device
         //thingId = getThingId(this);
@@ -117,10 +155,9 @@ const handlers = {
         this.emit(':saveState', true)
         updateDevice(this, desired);
     },
+
     'cookSomethingIntent': function () {
-        this.emit('cookSomething');
-    },
-    'cookSomething': function () {
+        console.log('COOKING cookSomethingIntent');
         console.log("User state: " + this.attributes["step"]);
         // handle cooking yogurt or ricotta cheese
         const slots = this.event.request.intent.slots;
@@ -160,7 +197,8 @@ const handlers = {
 
             // set the desired device state
             updateDevice(this, desired);
-            this.emit(':saveState', true);
+            this.handler.state = states.RECIPE;
+            this.emitWithState(':saveState', true);
         } else {
             this.emit(':elicitSlot', "foodToCook", "I can make " + help_options +
                 ", Which would you like?", "Please say that again?");
@@ -170,7 +208,7 @@ const handlers = {
         // Create speech output
         const speechOutput = responseText; //this.t('NOW_LETS_COOK') + responseText;
  
-        if (this.event.context.System.device.supportedInterfaces.Display) {
+        if (supportsDisplay.call(this)) {
             // utility methods for creating Image and TextField objects
             const makePlainText = Alexa.utils.TextUtils.makePlainText;
             const makeImage = Alexa.utils.ImageUtils.makeImage;
@@ -213,14 +251,74 @@ const handlers = {
         this.emit(':tell', this.t('STOP_MESSAGE'));
     },
     'Unhandled': function () {
-        console.log("unhandled: " + process.env.APP_ID);
-        console.log(this.event);
-        console.log("Intent:");
-        console.log(this.event.request.intent);
+        console.log("COOK unhandled: " + process.env.APP_ID);
+        console.log(JSON.stringify(this.event));
         var speechOutput = "Sorry, can you try again please";
         this.emit(':tell', speechOutput);
     },
-};
+});
+
+/**
+ * in recipe state, we can only cancel, go to next step, or get status
+ * 
+ * TODO handle requests for info
+ */
+const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
+    // recipe status
+
+    'LaunchRequest': function() {
+        console.log('RECIPE LaunchRequest');
+        this.emitWithState('getStatusIntent');
+    },
+
+    'getStatusIntent': function () {
+        console.log('RECIPE getStatus');
+        getDeviceStatus.call(this);
+    },
+
+    'nextStepIntent': function () {
+        console.log('RECIPE nextStepIntent');
+        // get user's state and then get the next step and update the device
+        //thingId = getThingId(this);
+        console.log(this.attributes);
+        let currentRecipe = this.attributes["recipe"];
+        if ( ! currentRecipe ) {
+            this.emit(':tell', "I'm sorry, you're not cooking anything right now.");
+            return;
+        }
+
+        let stepid = this.attributes["step"] + 1;
+        let newStep = currentRecipe.steps.reduce((curr, prev) => {
+            return (curr.step === stepid) ? curr : prev;
+        })
+        // TODO
+        // handle stepid not found (ie, we are done)
+        // handle recipe == complete (we are done)
+        
+        let responseText = newStep.speak;
+        this.response.speak(responseText);
+
+        let desired = {};
+        desired.alarm_high = newStep.alarm_high || null;
+        desired.alarm_low = newStep.alarm_low || null;
+        desired.timer = newStep.timer || null;
+        desired.step = stepid;
+
+        // save state
+        this.attributes['step'] = stepid;
+        this.attributes['timestamp'] = Date.now();
+
+        this.emit(':saveState', true)
+        updateDevice(this, desired);
+    },
+
+    'Unhandled': function () {
+        console.log('RECIPE unhandled');
+        console.log(JSON.stringify(this.event));
+        var speechOutput = "Sorry, can you try again please";
+        this.emit(':tell', speechOutput);
+    },
+});
 
 exports.handler = function (event, context, callback) {
     // NOTE alexa is already defined as a global so functions can access it
@@ -228,26 +326,30 @@ exports.handler = function (event, context, callback) {
 
     alexa.appId = process.env.APP_ID;
     alexa.dynamoDBTableName = process.env.DYNAMODB_STATE_TABLE;
+
+    console.log('START');
+    console.log(JSON.stringify(event));
+
     // To enable string internationalization (i18n) features, set a resources object.
-    console.log(event);
-    console.log(context);
     alexa.resources = languageStrings;
 
-    alexa.registerHandlers(handlers);
+    alexa.registerHandlers(handlers, cookHandlers, recipeHandlers);
     alexa.execute();
 };
 
 /*
- * fetch a Thing's shadow state before responding to the user
+ * fetch a Thing's shadow state and respond to the user
  * 
  * This is reasonably fast but we might also want to try Alexa's new async
  * responses i.e. Progressive Response
  */
-function getDeviceStatus(sess) {
+function getDeviceStatus() {
+    let sess = this;
     console.log("getting device status");
-    let thingId = sess.attributes["thingId"];
+    let thingId = this.attributes["thingId"];
     if ( !thingId ) {
         console.log("Get device: no id");
+        // TODO handle this
         return false;
     }
     var thing = new AWS.IotData({endpoint: process.env.THING_API});
@@ -264,13 +366,58 @@ function getDeviceStatus(sess) {
             console.log(data);
             var shadow = JSON.parse(data.payload);
             console.log(shadow);
-            let cooking = shadow.state.reported.mode || "thermometer";
-            if (shadow.state.reported.temperature) {
-                alexa.emit(':tell', "Your " +
-                    cooking +
-                    " is now " +
-                    shadow.state.reported.temperature +
-                    " degrees.");
+            let reported = shadow.state.reported;
+            // TODO handle no reported structure
+
+            let mode = reported.mode || "";
+            let cooking = "thermometer";
+            let recipe = false;
+            if ( mode && mode !== "measure" ) {
+                cooking = "Yogurt";
+                recipe = true;
+            }
+            if (reported.temperature && reported.temperature !== -127 && reported.temperature !== 0) {
+                // if in a recipe, show the step and check if we should go to the
+                // next step, otherwise just show the temperature
+                let currentTemp = reported.temperature;//.value;
+                let units = "celsius";//shadow.state.reported.temperature.units;
+                let txtUnits = (units === "fahrenheit") ? "F" : "C";
+                let step = reported.step || 0;
+                let recipeName = reported.mode || ""; // TODO
+                let reached = false;
+                let targetTemp = false;
+                if (recipe) {
+                    console.log("in recipe");
+                    let step = sess.attributes['step'];
+                    if (reported.alarm_high) {
+                        targetTemp = reported.alarm_high;
+                        reached = (reported.alarm_high <= reported.temperature);
+                    }
+                    if (reported.alarm_low) {
+                        targetTemp = reported.alarm_low;
+                        reached = reached || (reported.alarm_low >= reported.temperature);
+                    }
+                    let reportTarget = "";
+                    if (targetTemp) {
+                        reportTarget = "Target " + targetTemp + "°" + txtUnits + (reached ? " REACHED" : "")
+                    }
+                    sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
+                        units, sess.t('SKILL_NAME'),
+                        "Making " + recipeName + "\n" +
+                        "Step " + step + "\n" +
+                        "Temperature " + currentTemp + "°" + txtUnits + "\n" +
+                        reportTarget
+                    );
+
+                } else {
+                    sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
+                        units, sess.t('SKILL_NAME'),
+                        "Thermometer:\n" + currentTemp + "°" + txtUnits
+                    );
+                }
+                return;
+            } else {
+                alexa.emit(':tell', "Your device may be off");
                 return;
             }
         }
@@ -339,19 +486,20 @@ function getRecipe(slot) {
  * The callback is called once the attribute is set
  * NOTE this only needs to be called when a new session starts
  * 
- * @param {object} sess - main Alexa object
  * @param {function} callback - callback to execute after id retrieved
  */
-function setUserThingId(sess, callback) {
-    if ( sess.attributes && sess.attributes["thingId"] ) {
-        console.log("using thing " + sess.attributes["thingId"]);
+function setUserThingId(callback) {
+    // TEST no id callback( false );
+    // TEST no id return;
+    if ( this.attributes && this.attributes["thingId"] ) {
+        console.log("using thing " + this.attributes["thingId"]);
         if ( callback ) {
-            callback( sess.attributes["thingId"] );
+            callback( this.attributes["thingId"] );
             return;
         }
     }
 
-    let userId = sess.event.session.user.userId;
+    let userId = this.event.session.user.userId;
     // look in the USER/DEVICES table for the thing Id
     const ddb = new AWS.DynamoDB({apiVersion: '2012-10-08'});
 
@@ -366,17 +514,31 @@ function setUserThingId(sess, callback) {
     // Call DynamoDB to read the item from the table
     let getItemPromise = ddb.getItem(params).promise();
     getItemPromise.then( (data) => {
-            // data.Item looks like:
-            // { thingId: {S: "actualId"} }
-            let thingId = data.Item.thingId.S;
-            console.log("Found user thing " + thingId);
-            // save in user session
-            sess.attributes["thingId"] = thingId;
-            if ( callback ) {
-                callback(sess);
-            }
-         })
-        .catch( err => {
-            console.log(err);
-        });
+        // data.Item looks like:
+        // { thingId: {S: "actualId"} }
+        let thingId = data.Item.thingId.S;
+        console.log("Found user thing " + thingId);
+        // save in user session
+        this.attributes["thingId"] = thingId;
+        if ( callback ) {
+            callback( thingId );
+            return;
+        }
+        })
+    .catch( err => {
+        console.log(err);
+    });
+
+    // failed
+    callback( false );
+}
+
+function supportsDisplay() {
+    let hasDisplay = this.event.context 
+        && this.event.context.System 
+        && this.event.context.System.device 
+        && this.event.context.System.device.supportedInterfaces 
+        && this.event.context.System.device.supportedInterfaces.Display;
+  
+    return hasDisplay;
 }
