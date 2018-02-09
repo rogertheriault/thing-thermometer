@@ -1,5 +1,7 @@
 # thing-thermometer
 
+Short URL: https://git.io/vAIQI
+
 ## An AWS IoT "Thing" Kitchen / BBQ Thermometer
 
 ![photo of e-paper display](img/prototype.jpg?raw=true "Thermometer probe display")
