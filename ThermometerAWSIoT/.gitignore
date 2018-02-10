@@ -1,1 +1,5 @@
 config.h
+*.pem
+*.der
+*.key
+*.crt

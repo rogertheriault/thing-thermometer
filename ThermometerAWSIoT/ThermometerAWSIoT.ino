@@ -35,7 +35,8 @@
   #include <ESP8266HTTPClient.h>
 #else
   #include <WiFi.h>
-  #include <WiFiMulti.h>
+  //#include <WiFiMulti.h>
+  #include <WiFiClientSecure.h>
   #include <HTTPClient.h>
   #include <SPIFFS.h>
 #endif
@@ -96,10 +97,6 @@ void setup() {
   setup_awsiot();
 
   
-  if (connect()) {
-    subscribe();
-    //updateShadow();
-  }
   Serial.print(F("setup heap size: "));
   Serial.println(ESP.getFreeHeap());
 }
@@ -144,16 +141,7 @@ void loop() {
     Serial.println(ESP.getFreeHeap());
   }
 
-
-  // keep mqtt up and running
-  if (awsWSclient.connected()) {    
-    client->yield();
-  } else {
-    // handle reconnection
-    if (connect()) {
-      subscribe();      
-    }
-  }
+  mqtt_reconnect();
 
   updateShadow();
   updateDisplay();

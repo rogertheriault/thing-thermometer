@@ -5,52 +5,116 @@
 //#define AWS_TOPIC_UPDATE(x) "$aws/things/"x"/shadow/update"
 //#define AWS_TOPIC_SUBSCRIBE(x) "$aws/things/"x"/shadow/update/delta"
 
-#include <AWSWebSocketClient.h>
-// MQTT PAHO
-#include <IPStack.h>
-#include <Countdown.h>
-#include <MQTTClient.h>
+// declarations
+//void messageArrived(char*, unsigned char*, unsigned int);
+void messageArrived(char* topic, byte* payload, unsigned int length);
+
+#include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-//MQTT config
-const int maxMQTTpackageSize = 512;
-const int maxMQTTMessageHandlers = 1;
-AWSWebSocketClient awsWSclient(1000);
+// MQTT config for PubSubClient
+#define MQTT_MAX_PACKET_SIZE 512
 
 #ifdef ESP8266
 ESP8266WiFiMulti WiFiMulti;
 #else
-WiFiMulti WiFiMulti;
+//WiFiMulti WiFiMulti;
 #endif
 
-IPStack ipstack(awsWSclient);
-MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers> *client = NULL;
 
 //# of connections
 long connection = 0;
 
+// SSL client
+WiFiClientSecure espClient;
+// MQTT client with port 8883 (secure)
+PubSubClient mqttClient(AWS_ENDPOINT, 8883, messageArrived, espClient);
+
 void setup_awsiot() {
   // AWS parameters should be set in config.h  
-  awsWSclient.setAWSRegion(AWS_REGION);
-  awsWSclient.setAWSDomain(AWS_ENDPOINT);
 
-  // Note this should be replaced with a certificate and TLS1.2 when libraries support it
-  awsWSclient.setAWSKeyID(AWS_KEY_ID);
-  awsWSclient.setAWSSecretKey(AWS_KEY_SECRET);
+  // Load certificate file
+  const char * cert = getCharsFromFS("/certificate.pem.crt");
+  if (!cert) {
+    Serial.println(F("Failed to open cert file"));
+  } else {
+    Serial.println(F("Success to open cert file"));
+  }
+  delay(1000);
+
+  espClient.setCertificate(cert);
+  Serial.println(F("cert set"));
+
+  // Load private key file
+  const char * private_key = getCharsFromFS("/private.pem.key");
+  if (!private_key) {
+    Serial.println(F("Failed to open private cert file"));
+  } else {
+    Serial.println(F("Success to open private cert file"));
+  }
+
+  delay(1000);
+
+  espClient.setPrivateKey(private_key);
+  Serial.println(F("private key set"));
   
-  awsWSclient.setUseSSL(true);
+  
+  // Load CA file
+  const char * ca = getCharsFromFS("/aws-root-ca.pem");
+  if (!ca) {
+    Serial.println(F("Failed to open ca "));
+  } else {
+    Serial.println(F("Success to open ca"));
+  }
+
+  delay(1000);
+
+  espClient.setCACert(ca);
+  Serial.println(F("ca loaded"));
+    
+  
+  Serial.print("Heap: ");
+  Serial.println(ESP.getFreeHeap());
+
 }
 
+void mqtt_reconnect() {
+  while (!mqttClient.connected()) {
+    Serial.println(F("Attempting to connect to AWS IoT on MQTT"));
+
+    if (mqttClient.connect(THING_ID)) {
+      Serial.println(F("connected"));
+      mqttClient.subscribe(aws_topic_delta);
+    } else {
+      Serial.print(F("failed. rc="));
+      Serial.print(mqttClient.state());
+      Serial.println(F(" waiting 5 secs"));
+      // TODO yield
+      delay(5000);
+    }
+  }
+}
 
 // blocks until connected
 void setup_wifi() {
-    WiFiMulti.addAP(WLAN_SSID, WLAN_PASS);
-    Serial.println ("connecting to wifi");
-    while(WiFiMulti.run() != WL_CONNECTED) {
-        delay(100);
-        Serial.print (".");
+    delay(10);
+    
+    //WiFiMulti.addAP(WLAN_SSID, WLAN_PASS);
+    Serial.print(F("connecting to wifi: "));
+    Serial.println(WLAN_SSID);
+    
+    WiFi.begin(WLAN_SSID, WLAN_PASS);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+        // TODO timeout and reset
     }
-    Serial.println ("\nconnected");
+
+    Serial.println(F("\nWiFi connected"));
+    Serial.print(F("IP address: "));
+    Serial.println(WiFi.localIP());
+
     pixel_wifidone();
 }
 
@@ -64,21 +128,16 @@ void setup_wifi() {
  */
 void doUpdateDesired() {
 
-    Serial.println("DESIRED device shadow");
+    Serial.println(F("DESIRED device shadow"));
     Serial.println( aws_topic_update );
-    
-    MQTT::Message message;
     
     //{"state":{"desired":{"mode":"measure","alarm_high":null,"alarm_low":null,"step":0}}}
 
     char buf[] = "{\"state\":{\"desired\":{\"mode\":\"measure\",\"alarm_high\":null,\"alarm_low\":null,\"step\":0}}}";
-    message.qos = MQTT::QOS0;
-    message.retained = false;
-    message.dup = false;
-    message.payload = (void*)buf;
-    message.payloadlen = strlen(buf)+1;
-    int rc = client->publish( aws_topic_update, message); 
     Serial.println(buf);
+    int rc = mqttClient.publish(aws_topic_update, buf); 
+    Serial.print(F("returned "));
+    Serial.println(rc);
 }
 
 /** 
@@ -134,6 +193,7 @@ void setRecipeStep(String recipeid, String step) {
   }
     
   // Set current recipe info into our "state"
+  // TODO refactor
   File file = SPIFFS.open("/recipes.json", "r");
   if ( !file ) {
     Serial.println(F("file open failed"));
@@ -199,53 +259,6 @@ char* generateClientID() {
   return cID;
 }
 
-// connects to websocket layer and mqtt layer
-bool connect() {
-
-  if (client == NULL) {
-    client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
-  } else {
-    if (client->isConnected ()) {    
-      client->disconnect ();
-    }  
-    delete client;
-    client = new MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers>(ipstack);
-  }
-
-  // delay is not necessary... it just help us to get a "trustful" heap space value
-  delay(1000);
-  Serial.print(millis());
-  Serial.print(" - conn: ");
-  Serial.print(++connection);
-  Serial.print(" - (");
-  Serial.print(ESP.getFreeHeap());
-  Serial.println(")");
-
-  int rc = ipstack.connect(AWS_ENDPOINT, AWS_SERVERPORT);
-  if (rc != 1) {
-    Serial.println("error connection to the websocket server");
-    return false;
-  } else {
-    Serial.println("websocket layer connected");
-  }
-
-  Serial.println("MQTT connecting");
-  MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
-  data.MQTTVersion = 3;
-  char* clientID = generateClientID();
-  data.clientID.cstring = clientID;
-  rc = client->connect(data);
-  delete[] clientID;
-  
-  if (rc != 0) {
-    Serial.print("error connection to MQTT server");
-    Serial.println(rc);
-    return false;
-  }
-  Serial.println("MQTT connected");
-  return true;
-}
-
 // send an update to the Thing shadow
 void updateShadow() {
     if ( !shadow_update ) {
@@ -254,8 +267,6 @@ void updateShadow() {
     shadow_update = false;
     Serial.println("updating device shadow");
     Serial.println( aws_topic_update );
-    
-    MQTT::Message message;
     
     Serial.println( currentTemp );
 
@@ -278,13 +289,10 @@ void updateShadow() {
 
     char buf[201]; // TODO reduce more?
     payload.printTo(buf, 200);
-    message.qos = MQTT::QOS0;
-    message.retained = false;
-    message.dup = false;
-    message.payload = (void*)buf;
-    message.payloadlen = strlen(buf)+1;
-    int rc = client->publish( aws_topic_update, message); 
+    int rc = mqttClient.publish(aws_topic_update, buf); 
     //delete buf;
+    Serial.print(F("return code: "));
+    Serial.println(rc);
 }
 
 // count messages arrived
@@ -293,22 +301,15 @@ int arrivedcount = 0;
 // callback to handle thing shadow delta messages
 // these are settings that we must change to reflect the desired state
 
-void messageArrived(MQTT::MessageData& md) {
-  MQTT::Message &message = md.message;
+void messageArrived(char* topic, byte* payload, unsigned int length) {
 
-  Serial.print(F("Message "));
-  Serial.print(++arrivedcount);
-  Serial.print(F(" arrived: qos "));
-  Serial.print(message.qos);
-  Serial.print(F(", retained "));
-  Serial.print(message.retained);
-  Serial.print(F(", dup "));
-  Serial.print(message.dup);
-  Serial.print(F(", packetid "));
-  Serial.println(message.id);
-  Serial.print(F("Payload "));
-  char* msg = new char[message.payloadlen+1]();
-  memcpy (msg,message.payload,message.payloadlen);
+  Serial.print(F("New MQTT message arrived on topic: "));
+  Serial.println(topic);
+  // TODO if we handle different topics do a switch here
+  // assuming it's the delta topic we subscribed to (the only one) for now
+
+  char* msg = new char[length + 1]();
+  memcpy(msg, payload, length);
   Serial.println(msg);
 
   // convert the JSON text to an object
@@ -390,21 +391,4 @@ void messageArrived(MQTT::MessageData& md) {
   }
   //delete msg;
 }
-
-
-// subscribe to the Thing Shadow topic
-void subscribe() {
-    Serial.println( aws_topic_delta );
-    // subscribe, supplying messageArrived as the callback for new messages
-    int rc = client->subscribe(aws_topic_delta, MQTT::QOS0, messageArrived);
-    if (rc != 0) {
-      Serial.print("rc from MQTT subscribe is ");
-      Serial.println(rc);
-      return;
-    }
-    Serial.println("MQTT subscribed");
-    pixel_iotdone();
-}
-
-
 

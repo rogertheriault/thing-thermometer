@@ -3,6 +3,25 @@
 uint8_t* bitmap1;
 boolean hasbitmap = false;
 
+// utility to load FS data into a char array
+char * getCharsFromFS(String filename) {
+
+  File stringfile = SPIFFS.open(filename, "r");
+  if ( ! stringfile ) {
+    Serial.println(F("unable to open file"));
+  }
+  int filesize = stringfile.size();
+
+  Serial.print(F("File size: "));
+  Serial.println(filesize);
+  
+  char * charstring = new char[filesize];
+  stringfile.readBytes((char *) charstring, filesize);
+  stringfile.close();
+
+  return charstring;
+}
+
 // general helper function to get a URL and, if changed, update the FS with the contents
 boolean copyUrlToFile(String url, String filename) {
   HTTPClient http;
