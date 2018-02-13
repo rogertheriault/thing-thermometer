@@ -64,6 +64,8 @@ The device regularly reads the probe temperature(s), looks for changes, and then
 - breadboard and wires
 ### Wiring it up
 
+see https://cdn-learn.adafruit.com/assets/assets/000/030/930/original/adafruit_products_2889_pinout_v1_0.png?1457306365
+
 Peripheral | PIN | ESP8266 Pin
 --- | --- | --- 
 NeoPixel | VIN | 3.3v
