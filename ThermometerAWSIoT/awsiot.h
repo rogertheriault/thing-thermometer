@@ -5,14 +5,20 @@
 #define AWS_TOPIC_UPDATE(x) "$aws/things/"x"/shadow/update"
 #define AWS_TOPIC_SUBSCRIBE(x) "$aws/things/"x"/shadow/update/delta"
 
+// This set of libraries has proven "reliable" for AWS IoT MQTT
+// The other option is to use PubSubClient, which does support 
+// certificates, but seems a bit unstable.
+// A bit more experimentation is needed.
+
 #include <AWSWebSocketClient.h>
 // MQTT PAHO
 #include <IPStack.h>
 #include <Countdown.h>
 #include <MQTTClient.h>
+// JSON parsing library
 #include <ArduinoJson.h>
 
-//MQTT config
+// MQTT config
 const int maxMQTTpackageSize = 512;
 const int maxMQTTMessageHandlers = 1;
 AWSWebSocketClient awsWSclient(1000);
@@ -22,15 +28,16 @@ ESP8266WiFiMulti WiFiMulti;
 IPStack ipstack(awsWSclient);
 MQTT::Client<IPStack, Countdown, maxMQTTpackageSize, maxMQTTMessageHandlers> *client = NULL;
 
-//# of connections
+// # of connections counter
 long connection = 0;
 
+// set up the AWS IoT (MQTT) connection
 void setup_awsiot() {
   // AWS parameters should be set in config.h  
   awsWSclient.setAWSRegion(AWS_REGION);
   awsWSclient.setAWSDomain(AWS_ENDPOINT);
 
-  // Note this should be replaced with a certificate and TLS1.2 when libraries support it
+  // Note this should be replaced with a certificate and TLS1.2 when libraries support it (and we don't run out of RAM)
   awsWSclient.setAWSKeyID(AWS_KEY_ID);
   awsWSclient.setAWSSecretKey(AWS_KEY_SECRET);
   
@@ -39,6 +46,7 @@ void setup_awsiot() {
 
 
 // blocks until connected
+// connect to the WiFi router
 void setup_wifi() {
     WiFiMulti.addAP(WLAN_SSID, WLAN_PASS);
     Serial.println ("connecting to wifi");
@@ -47,6 +55,8 @@ void setup_wifi() {
         Serial.print (".");
     }
     Serial.println ("\nconnected");
+
+    // update the state of the pixels
     pixel_wifidone();
 }
 
@@ -132,11 +142,10 @@ void setRecipeStep(String recipeid, String step) {
   // Set current recipe info into our "state"
   File file = SPIFFS.open("/recipes.json", "r");
   if ( !file ) {
-    Serial.println(F("file open failed"));
+    Serial.println("recipes.json file open failed");
   }
   char* filedata = new char[file.size()+1]();
   file.readBytes(filedata, file.size());
-  //Serial.println(filedata);
   file.close();
 
   const size_t bufferSize = JSON_OBJECT_SIZE(1) + 6*JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + 290;
@@ -144,11 +153,11 @@ void setRecipeStep(String recipeid, String step) {
   
   JsonObject& recipes = jsonBuffer.parseObject(filedata);
   if (recipes.success() && recipes["recipes"]) {
-    Serial.println(F("parsed Json"));
+    Serial.println("parsed Json");
     
     // Extract values
-    Serial.print(F("Current recipe: "));
     Serial.println(recipeid);
+
     if (! recipes["recipes"][recipeid] ) {
       Serial.println(F("recipeid not found"));
       return;

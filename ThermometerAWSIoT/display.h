@@ -1,4 +1,4 @@
-
+ 
 /**
  * all the display settings (except pin assignments?)
  */
@@ -66,6 +66,10 @@ void updateDisplay() {
   // TODO center
   display.print( recipe_title );
 
+  // battery
+  //display.setCursor(160, 20);
+  //display.print( ESP.getVcc() );
+
   // current temperature & step
   display.setFont(&FreeSans9pt7b);
   display.setCursor(0, 40);
@@ -83,7 +87,7 @@ void updateDisplay() {
   if (in_alarm_state) {
     display.setTextColor(DISPLAY_HICOLOR);
   }
-  if (currentTemp > -100) {
+  if (currentTemp > 0) {
     display.setFont(&FreeSansBold18pt7b);
     display.setCursor(100, 130);
     display.print(currentTemp);
