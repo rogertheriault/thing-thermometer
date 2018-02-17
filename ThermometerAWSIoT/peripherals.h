@@ -22,7 +22,10 @@ void setup_peripherals() {
 void send_i2c(const char *s, int len) {
   // sending to a slave involves starting, writing bytes, then ending
   Serial.print("sending I2C command ");
-  Serial.println(s);
+  for (int i = 0; i < len; i++) {
+    Serial.print(s[i]);
+  }
+  Serial.println();
   
   Wire.beginTransmission(SLAVE_I2C);
   for (int i = 0; i < len; i++) {
@@ -54,21 +57,27 @@ void pixel_iotdone() {
 }
 
 void pixel_alarm(boolean onOrOff) {
-  char msg[2];
+  char msg[4];
   msg[0] = 'a';
   msg[1] = onOrOff ? '1' : '0';
   send_i2c(msg, 2);
 }
 
 
-
+// update_alarm is a flag to signal that we need to send the alarm state
+// then we turn off the flag so the change is sent just once
 
 void check_alarm() {
+  if ( !update_alarm ) {
+    return;
+  }
+  
   if (in_alarm_state) {
     pixel_alarm(true);
   } else {
-    //pixel_alarm(false);
+    pixel_alarm(false);
   }
+  update_alarm = false;
 }
 
 
@@ -77,6 +86,7 @@ void check_alarm() {
 boolean shouldAlarm( ) {
   // 0 is a special value - and must be ignored
   if ( currentTemp <= 0 ) {
+    Serial.println("Temp out of range");
     return false;
   }
   
@@ -86,16 +96,21 @@ boolean shouldAlarm( ) {
   if ( alarm_low == 0 ) {
     watching_low = false;
   }
+  Serial.print("watching low ");
+  Serial.println(watching_low);
+  Serial.println(currentTemp);
+  Serial.println(alarm_low);
 
   // now check the valid values
   if ( watching_high && ( currentTemp >= alarm_high ) ) {
-    watching_high = false;
+    Serial.println("Temp exceeds max");
     return true;
   }
   if ( watching_low && ( currentTemp <= alarm_low ) ) {
-    watching_low = false;
+    Serial.println("Temp is below min");
     return true;
   }
+  Serial.println("Temperature is nominal");
   return false;
 }
 
@@ -153,13 +168,17 @@ void check_thermometers() {
       currentTemp = newTemp;
       needUpdate = true;
     }
-    
-    if ( shouldAlarm() ) {
+
+    boolean isOutOfRange = shouldAlarm();
+    if ( !in_alarm_state && isOutOfRange ) {
       in_alarm_state = true;
+      update_alarm = true;
       needUpdate = true;
-    } else if (in_alarm_state) {
-      // immediately turn off peripheral alarm when transitioning from on to off
-      pixel_alarm(false);
+    } else if ( in_alarm_state && !isOutOfRange ) {
+      // iturn off peripheral alarm if it was on
+      update_alarm = true;
+      in_alarm_state = false;
+      needUpdate = true;
     }
 
     // if something has changed, update the shadow and display

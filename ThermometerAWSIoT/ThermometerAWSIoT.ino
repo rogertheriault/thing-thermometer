@@ -86,6 +86,7 @@
 String default_step_text = "\"Alexa, ask Kitchen Helper to make yogurt\"";
 String default_title = "Kitchen Helper";
 String cooking_mode = "measure";
+boolean update_alarm = true; // flag to indicate a state change
 boolean in_alarm_state = false;
 unsigned int currentTemp = 0; // initializing to 0 should trigger an update on reset
 long lastReading = 0; // last reading tiome in millis
@@ -153,6 +154,8 @@ void setup() {
   Serial.print(F("setup heap size: "));
   Serial.println(ESP.getFreeHeap());
   delay(500);
+  update_alarm = true;
+  in_alarm_state = false;
   pixel_off();
 }
 

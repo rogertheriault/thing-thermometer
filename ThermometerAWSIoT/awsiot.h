@@ -181,7 +181,13 @@ void setRecipeStep(String recipeid, String step) {
     Serial.println(isComplete);
     Serial.println(steptext);
     alarm_high = new_high;
+    if (alarm_high > 0) {
+      watching_high = true;
+    }
     alarm_low = new_low;
+    if (alarm_low > 0) {
+      watching_low = true;
+    }
     recipe_step_text = steptext;
     recipe_title = title;
 
@@ -354,6 +360,7 @@ void messageArrived(MQTT::MessageData& md) {
       alarm_high = new_high;
       // disable current alarm if new temp is below the threshold
       if ( in_alarm_state && currentTemp < new_high ) {
+        update_alarm = true;
         in_alarm_state = false;
       }
     }
@@ -365,6 +372,7 @@ void messageArrived(MQTT::MessageData& md) {
       alarm_low = new_low;
       // disable current alarm if new temp is below the threshold
       if ( in_alarm_state && currentTemp > new_low ) {
+        update_alarm = true;
         in_alarm_state = false;
       }
     }
