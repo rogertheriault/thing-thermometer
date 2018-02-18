@@ -96,10 +96,6 @@ boolean shouldAlarm( ) {
   if ( alarm_low == 0 ) {
     watching_low = false;
   }
-  Serial.print("watching low ");
-  Serial.println(watching_low);
-  Serial.println(currentTemp);
-  Serial.println(alarm_low);
 
   // now check the valid values
   if ( watching_high && ( currentTemp >= alarm_high ) ) {

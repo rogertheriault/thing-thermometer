@@ -183,10 +183,14 @@ void setRecipeStep(String recipeid, String step) {
     alarm_high = new_high;
     if (alarm_high > 0) {
       watching_high = true;
+    } else {
+      watching_high = false;
     }
     alarm_low = new_low;
     if (alarm_low > 0) {
       watching_low = true;
+    } else {
+      watching_low = false;
     }
     recipe_step_text = steptext;
     recipe_title = title;

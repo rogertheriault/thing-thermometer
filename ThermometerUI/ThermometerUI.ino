@@ -137,7 +137,7 @@ void loop() {
     if (receivedCommands[0] == 'a') {
       if (receivedCommands[1] == '1') {
         shade = CRGB::Red;
-        //pixel_all();
+        pixel_all();
         in_alarm_state = true;
       } else {
         pixel_off();
@@ -147,6 +147,9 @@ void loop() {
     // shade change - this can be expanded as needed
     if (receivedCommands[0] == 's') {
       switch (receivedCommands[1]) {
+        case 'a':
+          shade = CRGB::DarkOrange;
+          break;
         case 'r':
           shade = CRGB::Red;
           break;
@@ -160,6 +163,7 @@ void loop() {
           shade = CRGB::Black;
           break;
       }
+      pixel_all();
     }
     newCommands = false;
   }
@@ -240,22 +244,29 @@ void checkTemperature() {
 // set up the neopixel ring
 void setup_pixel() {
   LEDS.addLeds<WS2811, PIXELPIN, GRB>(leds, 8);
-  // TODO
-  leds[0] = CRGB( 76, 91, 32); // amber
-  FastLED.show();
+
+  shade = CRGB::Orange;
+  pixel_all();
   delay(5000);
 }
 
 // generate some pixel motion periodically
 void pixel_move() {
 
+  // this block of code makes all the pixels "breathe"
+  // see https://gist.github.com/hsiboy/4eae11073e9d5b21eae3
+  float breath = (exp(sin(millis()/2000.0*PI)) - 0.36787944)*108.0;
+  FastLED.setBrightness(breath);
+
   // This block of code rotates one lit pixel around the ring
+  /*
   leds[pixel_id] = CRGB::Black;
   pixel_id += 1;
   if ( pixel_id >= NUM_LEDS) {
     pixel_id = 0;
   }
   leds[pixel_id] = shade;
+  */
   
   FastLED.show();
 }
