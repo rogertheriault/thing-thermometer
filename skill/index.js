@@ -22,7 +22,8 @@ const async = require("async");
 const Alexa = require('alexa-sdk');
 
 const CDN = process.env.CDN;
-const PROJECT_SHORTURL = process.env.PROJECT_SHORTURL;
+// if the URL is not set, default to the original github url
+const PROJECT_SHORTURL = process.env.PROJECT_SHORTURL || "https://git.io/vAIQI";
 const recipes = require('./recipes.json');
 
 // Set up a list of recipes that can be used
@@ -50,6 +51,21 @@ const languageStrings = {
     },
 };
 
+const speechText = {
+    WELCOME_MESSAGE: [
+        "Welcome, are we cooking today? ",
+        "Hello, what delicious recipe would you like to cook? "
+    ],
+    HELP_MESSAGE: [
+        'You can make ' + help_options + ', or you can set the thermometer. ',
+        'You can cook a recipe, the choices are ' + help_options + '. '
+    ],
+    HELP_REPROMPT: [
+        'What can I help you with? ',
+        'What would you like to do? '
+    ],
+    STOP_MESSAGE: 'Goodbye!',
+}
 // utility methods for creating Image and TextField objects
 //const makePlainText = Alexa.utils.TextUtils.makePlainText;
 //const makeImage = Alexa.utils.ImageUtils.makeImage;
@@ -65,82 +81,191 @@ const languageStrings = {
 // newTemp = ??
 
 const states = {
-    COOKING: "_COOK",
-    RECIPE: "_RECIPE", // cooking with a recipe
-    INFORMING: "_INFO" // user needs instructions
+    START: "_START",
+    RECIPE: "_RECIPE" // cooking with a recipe
 }
 
-// default when no state is set
+// default when no state is set (new session)
+// all new sessions must call verifyThing
 const handlers = {
     'LaunchRequest': function () {
-        // TODO prompt user to determine the intent
-        this.emit('Welcome');
+        console.log('LaunchRequest');
+        verifyThing.call(this, 'Welcome', states.START);
+    },
+    'getStatusIntent': function() {
+        console.log('getStatusIntent');
+        verifyThing.call(this, 'getStatusIntent', states.START);
+    },
+    'cookSomethingIntent': function() {
+        console.log('cookSomethingIntent');
+        verifyThing.call(this, 'cookSomethingIntent', states.RECIPE);
+    },
+    'SessionEndedRequest': function () {
+        console.log("SESSION ENDED");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+    },
+    "Unhandled": function() {
+        console.log("UNHANDLED EVENT");
+        console.log(JSON.stringify(this.event));
+        this.handler.state = states.START;
+        this.emitWithState(this.event.request.intent.name);
+    }
+}
+
+const sessHandlers = Alexa.CreateStateHandler(states.START, {
+    'LaunchRequest': function () {
+        console.log('START LaunchRequest');
+        verifyThing.call(this, 'Welcome', states.START);
     },
     'Welcome': function () {
-        setUserThingId.call(this, (thingId) => {
-            if ( ! thingId ) {
-                let speechOutput = "You'll need to set up a thermometer first. " +
-                    "I've added a link to your Alexa app with information about " +
-                    "creating your own thermometer";
-                let displayText = "This skill demonstrates controlling an IoT device with Alexa " +
-                    "and Arduino. You can create your own device with the instructions at the " +
-                    "following link: " + PROJECT_SHORTURL;
-                // TODO account linking card and instructions
-                this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
-                    displayText );
-
-                // TODO continue with a virtual device
-                return;
-            }
-            // TODO check current state
-            this.emit(':ask', "Welcome! Are we cooking today?");
-        });
+        // user not cooking
+        // If the user was in a recipe, the Welcome handler for RECIPE state
+        // should have received control
+        let speechOutput = getRandomItem('WELCOME_MESSAGE');
+        this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
+        this.emit(":responseReady");
     },
     // just get the current device status (we're not cooking)
     'getStatusIntent': function () {
+        console.log('START getStatusIntent');
         getDeviceStatus.call(this);
     },
+    'nextStepIntent': function () {
+        console.log('START nextStepIntent');
+        // not in recipe mode, so just tell the user
+        let speechOutput = "You're not in a recipe right now. What would you like to cook? ";
+        this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
+        this.emit(":responseReady");
+    },
+    // user has said they want to cook something
     'cookSomethingIntent': function () {
-        this.handler.state = states.COOKING;
+        this.handler.state = states.RECIPE;
         this.emitWithState('cookSomethingIntent');
     },
-    "Unhandled": function() {
-        console.log("UNHANDLED EVENT " + JSON.stringify(this));
-        this.handler.state = states.COOKING;
-        this.emitWithState(this.event.request.intent.name);
-    }
-};
-
-const cookHandlers = Alexa.CreateStateHandler(states.COOKING, {
-    // cooking status
-    'LaunchRequest': function() {
-        console.log('COOKING LaunchRequest');
-        this.emitWithState('getStatusIntent'); 
+    'HelpIntent': function() {
+        console.log("START HelpIntent");
+        let speechOutput = getRandomItem('WELCOME_MESSAGE') + 
+            getRandomItem('WELCOME_HELP') + " <break time='.5s'/>"  +
+            getRandomItem('HELP_REPROMPT');
+        this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
+        this.emit(":responseReady");
     },
+    'AMAZON.CancelIntent': function () {
+        this.emit('AMAZON.StopIntent');
+    },
+    'AMAZON.StopIntent': function () {
+        let responseText = "Stopping your recipe now."
+        desired.alarm_high = 0;
+        desired.alarm_low = 0;
+        desired.mode = "";
+        desired.step = 0;
+        this.attributes["recipe"] = undefined;
+        this.attributes["step"] = undefined;
+        this.attributes["started"] = undefined;
+        this.attributes["timestamp"] = Date.now();
+        updateDevice.call(this, {desired, responseText});
+    },
+    'SessionEndedRequest': function () {
+        console.log("SESSION ENDED");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+    },
+    "Unhandled": function() {
+        console.log("START Unhandled event");
+        console.log(JSON.stringify(this.event));
+        var speechOutput = "Sorry, I didn't understand, can you try again please";
+        this.emit(':ask', speechOutput);
+    }
+});
+
+
+/**
+ * in recipe state, we can only cancel, go to next step, or get status
+ * 
+ * TODO handle requests for info
+ */
+const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
+    // recipe status
+    // user came back during recipe, give them a brief status?
+    'LaunchRequest': function() {
+        console.log('RECIPE LaunchRequest');
+        this.emitWithState('getStatusIntent');
+    },
+    // status during recipe
     'getStatusIntent': function () {
+        console.log('RECIPE getStatusIntent');
         getDeviceStatus.call(this);
     },
+    // cancel the recipe
+    'cancelRecipeIntent': function () {
+        console.log('RECIPE cancelRecipeIntent');
+        responseText = "Stopping any active recipe now."
+        desired.alarm_high = 0;
+        desired.alarm_low = 0;
+        desired.mode = "";
+        desired.step = 0;
+        this.attributes["recipe"] = undefined;
+        this.attributes["step"] = undefined;
+        this.attributes["started"] = undefined;
+        this.attributes["timestamp"] = Date.now();
+        updateDevice.call(this, {desired, responseText});
+    },
 
+    // proceed to the next step of the recipe (or finish it)
     'nextStepIntent': function () {
+        console.log('RECIPE nextStepIntent');
         // get user's state and then get the next step and update the device
         //thingId = getThingId(this);
-        console.log(this.attributes);
+        console.log(JSON.stringify(this.attributes));
         let currentRecipe = this.attributes["recipe"];
         if ( ! currentRecipe ) {
             this.emit(':tell', "I'm sorry, you're not cooking anything right now.");
             return;
         }
+        
+        let stepid = this.attributes["step"];
+        let currentStep = currentRecipe.steps.find(step => step.step == stepid);
 
-        let stepid = this.attributes["step"] + 1;
+        // if the current step is missing or complete, stop the recipe
+        // NOTE this is an error case, the last step should be handled
+        // by the code further down
+        if ( (!currentStep) || currentStep.recipe === "complete") {
+            this.handler.state = states.START;
+            this.response.speak("Your recipe is complete! Would you like to cook something else?");
+            desired.alarm_high = 0;
+            desired.alarm_low = 0;
+            desired.mode = "";
+            desired.step = 0;
+            this.attributes["recipe"] = undefined;
+            this.attributes["step"] = undefined;
+            this.attributes["started"] = undefined;
+            this.attributes["timestamp"] = Date.now();
+            this.emit(':saveState', true);
+            updateDevice.call(this, {desired, responseText, displayText, prompt} );
+            return;
+        }
+
+        // next step
+        stepid += 1;
         let newStep = currentRecipe.steps.reduce((curr, prev) => {
             return (curr.step === stepid) ? curr : prev;
         })
-        // TODO
-        // handle stepid not found (ie, we are done)
-        // handle recipe == complete (we are done)
+        
+        if (!newStep || newStep.recipe === "complete") {
+            // last step, no need to save the state, in fact,
+            // it needs to be removed
+            this.handler.state = states.START;
+            this.attributes['recipe'] = undefined;
+            this.attributes["step"] = undefined;
+            this.attributes["started"] = undefined;
+        } else {
+            // intermediate step
+            // save state
+            this.attributes['step'] = stepid;
+        }
+        this.attributes['timestamp'] = Date.now();
         
         let responseText = newStep.speak;
-        this.response.speak(responseText);
+        let displayText = newStep.display; // TODO more info
 
         let desired = {};
         desired.alarm_high = newStep.alarm_high || null;
@@ -148,16 +273,12 @@ const cookHandlers = Alexa.CreateStateHandler(states.COOKING, {
         desired.timer = newStep.timer || null;
         desired.step = stepid;
 
-        // save state
-        this.attributes['step'] = stepid;
-        this.attributes['timestamp'] = Date.now();
-
-        this.emit(':saveState', true)
-        updateDevice(this, desired);
+        updateDevice.call(this, {desired, responseText, displayText});
     },
 
+    // start cooking
     'cookSomethingIntent': function () {
-        console.log('COOKING cookSomethingIntent');
+        console.log('RECIPE cookSomethingIntent');
         console.log("User state: " + this.attributes["step"]);
         // handle cooking yogurt or ricotta cheese
         const slots = this.event.request.intent.slots;
@@ -180,7 +301,6 @@ const cookHandlers = Alexa.CreateStateHandler(states.COOKING, {
             });
             responseText = recipe.speak + " " + firstStep.speak;
             displayText = "Making " + recipe.title + "\n" + firstStep.display;
-            this.response.speak(responseText);
 
             let desired = {};
             desired.alarm_high = firstStep.alarm_high || null;
@@ -196,128 +316,24 @@ const cookHandlers = Alexa.CreateStateHandler(states.COOKING, {
             this.attributes['started'] = Date.now();
 
             // set the desired device state
-            updateDevice(this, desired);
-            this.handler.state = states.RECIPE;
-            this.emitWithState(':saveState', true);
+            this.emit(':saveState', true);
+            updateDevice.call(this, {desired, responseText, displayText});
         } else {
             this.emit(':elicitSlot', "foodToCook", "I can make " + help_options +
                 ", Which would you like?", "Please say that again?");
         }
 
-        // TODO move some of this to helpers
-        // Create speech output
-        const speechOutput = responseText; //this.t('NOW_LETS_COOK') + responseText;
- 
-        if (supportsDisplay.call(this)) {
-            // utility methods for creating Image and TextField objects
-            const makePlainText = Alexa.utils.TextUtils.makePlainText;
-            const makeImage = Alexa.utils.ImageUtils.makeImage;
-
-            const builder = new Alexa.templateBuilders.BodyTemplate1Builder();
-
-	        const template = builder.setTitle(this.t('SKILL_NAME'))
-			    .setBackgroundImage(makeImage(CDN + '/clouds.png'))
-			    .setTextContent(makePlainText(displayText))
-			    .build();
-
-	        this.response.speak(speechOutput)
-				.renderTemplate(template);
-            this.emit(':responseReady');
-        } else {
-            this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
-                displayText );
-        }
     },
-    'AMAZON.HelpIntent': function () {
-        const speechOutput = this.t('HELP_MESSAGE');
-        const reprompt = this.t('HELP_MESSAGE');
-        this.emit(':ask', speechOutput, reprompt);
+    'SessionEndedRequest': function () {
+        console.log("SESSION ENDED");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
     },
-    'AMAZON.CancelIntent': function () {
-        this.emit(':tell', this.t('STOP_MESSAGE'));
-    },
-    'AMAZON.StopIntent': function () {
-        responseText = "Stopping your recipe now."
-        this.response.speak(responseText);
-        desired.alarm_high = 0;
-        desired.alarm_low = 0;
-        desired.mode = "";
-        desired.step = 0;
-        this.attributes["recipe"] = undefined;
-        this.attributes["step"] = undefined;
-        this.attributes["started"] = undefined;
-        this.attributes["timestamp"] = Date.now();
-        updateDevice(this, desired);
-        this.emit(':tell', this.t('STOP_MESSAGE'));
-    },
-    'Unhandled': function () {
-        console.log("COOK unhandled: " + process.env.APP_ID);
+    "Unhandled": function() {
+        console.log("RECIPE Unhandled event");
         console.log(JSON.stringify(this.event));
         var speechOutput = "Sorry, can you try again please";
-        this.emit(':tell', speechOutput);
-    },
-});
-
-/**
- * in recipe state, we can only cancel, go to next step, or get status
- * 
- * TODO handle requests for info
- */
-const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
-    // recipe status
-
-    'LaunchRequest': function() {
-        console.log('RECIPE LaunchRequest');
-        this.emitWithState('getStatusIntent');
-    },
-
-    'getStatusIntent': function () {
-        console.log('RECIPE getStatus');
-        getDeviceStatus.call(this);
-    },
-
-    'nextStepIntent': function () {
-        console.log('RECIPE nextStepIntent');
-        // get user's state and then get the next step and update the device
-        //thingId = getThingId(this);
-        console.log(this.attributes);
-        let currentRecipe = this.attributes["recipe"];
-        if ( ! currentRecipe ) {
-            this.emit(':tell', "I'm sorry, you're not cooking anything right now.");
-            return;
-        }
-
-        let stepid = this.attributes["step"] + 1;
-        let newStep = currentRecipe.steps.reduce((curr, prev) => {
-            return (curr.step === stepid) ? curr : prev;
-        })
-        // TODO
-        // handle stepid not found (ie, we are done)
-        // handle recipe == complete (we are done)
-        
-        let responseText = newStep.speak;
-        this.response.speak(responseText);
-
-        let desired = {};
-        desired.alarm_high = newStep.alarm_high || null;
-        desired.alarm_low = newStep.alarm_low || null;
-        desired.timer = newStep.timer || null;
-        desired.step = stepid;
-
-        // save state
-        this.attributes['step'] = stepid;
-        this.attributes['timestamp'] = Date.now();
-
-        this.emit(':saveState', true)
-        updateDevice(this, desired);
-    },
-
-    'Unhandled': function () {
-        console.log('RECIPE unhandled');
-        console.log(JSON.stringify(this.event));
-        var speechOutput = "Sorry, can you try again please";
-        this.emit(':tell', speechOutput);
-    },
+        this.emit(':ask', speechOutput);
+    }
 });
 
 exports.handler = function (event, context, callback) {
@@ -333,9 +349,9 @@ exports.handler = function (event, context, callback) {
     // To enable string internationalization (i18n) features, set a resources object.
     alexa.resources = languageStrings;
 
-    alexa.registerHandlers(handlers, cookHandlers, recipeHandlers);
+    alexa.registerHandlers(handlers, sessHandlers, recipeHandlers);
     alexa.execute();
-};
+}
 
 /*
  * fetch a Thing's shadow state and respond to the user
@@ -376,7 +392,7 @@ function getDeviceStatus() {
                 cooking = "Yogurt";
                 recipe = true;
             }
-            if (reported.temperature && reported.temperature !== -127 && reported.temperature !== 0) {
+            if (reported.temperature && reported.temperature !== 0 && reported.temperature < 2000) {
                 // if in a recipe, show the step and check if we should go to the
                 // next step, otherwise just show the temperature
                 let currentTemp = reported.temperature;//.value;
@@ -430,10 +446,11 @@ function getDeviceStatus() {
  * 
  * We're passing the Alexa reference so we can call it
  */
-function updateDevice(sess, desired) {
+function updateDevice(update) {
     console.log("controlling a device");
-    console.log(desired);
-    let thingId = sess.attributes["thingId"];
+    console.log(JSON.stringify(update));
+    let thingId = this.attributes["thingId"];
+    let sess = this;
     if ( !thingId ) {
         console.log('Update: no device id');
         return;
@@ -441,7 +458,7 @@ function updateDevice(sess, desired) {
     var thing = new AWS.IotData({endpoint: process.env.THING_API});
     var payload = { 
         state: {
-            desired: desired
+            desired: update.desired
         }
     };
     var params = {
@@ -449,15 +466,19 @@ function updateDevice(sess, desired) {
         payload: JSON.stringify(payload)
     };
     thing.updateThingShadow(params, function (err, data) {
+        console.log("returned from shadow update");
+        console.log(update);
         if (err) {
             // do something
             console.log('updateThingShadow error:');
             console.log(err);
-            alexa.emit(':tell', "Oh gosh, something went wrong!");
+            sess.emit(':tell', "Oh gosh, something went wrong!");
         } else {
             console.log('updateThingShadow success:');
             console.log(data);
-            alexa.emit(':responseReady');
+            if ( update.responseText ) {
+                showTemplate.call(sess, update);
+            }
         }
     });
 }
@@ -524,13 +545,16 @@ function setUserThingId(callback) {
             callback( thingId );
             return;
         }
-        })
+        console.log("Callback missing");
+    })
     .catch( err => {
+        console.log("Error with getItem");
         console.log(err);
+        console.log("Failed to find a Thing");
+        callback( false );
     });
 
     // failed
-    callback( false );
 }
 
 function supportsDisplay() {
@@ -541,4 +565,89 @@ function supportsDisplay() {
         && this.event.context.System.device.supportedInterfaces.Display;
   
     return hasDisplay;
+}
+
+/**
+ * make sure the user has a Thing
+ * 
+ * If the user does not have a thing, all we can do is issue
+ * a link to the project
+ * 
+ * @param {String} nextIntent - the id of the next intent
+ * @param {String} nextState - the next state (START or RECIPE)
+ */
+function verifyThing(nextIntent, nextState) {
+    setUserThingId.call(this, (thingId) => {
+        if ( ! thingId ) {
+            let speechOutput = "You'll need to set up a thermometer first. " +
+                "I've added a link to your Alexa app with information about " +
+                "creating your own thermometer";
+            let displayText = "This skill demonstrates controlling an IoT device with Alexa " +
+                "and Arduino. You can create your own device with the instructions at the " +
+                "following link: " + PROJECT_SHORTURL;
+            // TODO account linking card and instructions
+            // For development use this should suffice
+            this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
+                displayText );
+            return;
+
+            // TODO continue with a virtual device? (ie web-based simulated thing)
+            // or allow recipe info mode
+        }
+        // user does have a connected Thermometer Thing
+        this.handler.state = nextState;
+        this.emitWithState(nextIntent);
+    });
+}
+
+/**
+ * get a random string from a list
+ * 
+ * @param {String} optionKey
+ */
+function getRandomItem(optionKey) {
+    let options = speechText[optionKey] || "";
+    if (typeof options === "string") {
+        return options;
+    }
+    let index = Math.floor(Math.random() * options.length);
+    return options[index];
+}
+
+/**
+ * display a template and end
+ * 
+ * all params are optional
+ * responseText - will be spoken
+ * displayText - will appear in template
+ * prompt - add a listen
+ */
+function showTemplate(params) {
+
+    if ( params.responseText ) {
+        console.log("speaking: " + params.responseText)
+        this.response.speak(params.responseText);
+    }
+    if ( params.prompt ) {
+        console.log("listening: " + params.prompt)
+        this.response.listen(params.prompt);
+    }
+    if (params.displayText && supportsDisplay.call(this)) {
+        // utility methods for creating Image and TextField objects
+        const makePlainText = Alexa.utils.TextUtils.makePlainText;
+        const makeImage = Alexa.utils.ImageUtils.makeImage;
+
+        const builder = new Alexa.templateBuilders.BodyTemplate1Builder();
+
+        const template = builder.setTitle(this.t('SKILL_NAME'))
+            .setBackgroundImage(makeImage(CDN + '/clouds.png'))
+            .setTextContent(makePlainText(params.displayText))
+            .build();
+
+        console.log("template: " + params.displayText)
+        this.response.renderTemplate(template);
+    }
+    console.log('saving state');
+    this.emit(':saveState', true)
+    this.emit(':responseReady');
 }
