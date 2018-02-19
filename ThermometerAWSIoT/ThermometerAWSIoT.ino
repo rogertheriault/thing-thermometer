@@ -100,8 +100,6 @@ int button_state = 0;
 int recipe_step = 0;
 String recipe_step_text = default_step_text;
 String recipe_title = default_title;
-//const char *aws_topic_update = "$aws/things/ThermometerThing_001/shadow/update";
-//const char *aws_topic_delta = "$aws/things/ThermometerThing_001/shadow/update/delta";
 
 // include the other bits - rather that separate headers and c files we've thrown it all in the header file,
 // mostly for simplicity for the time being
