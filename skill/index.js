@@ -638,7 +638,7 @@ function showTemplate(params) {
         const builder = new Alexa.templateBuilders.BodyTemplate1Builder();
 
         const template = builder.setTitle(this.t('SKILL_NAME'))
-            .setBackgroundImage(makeImage(CDN + '/clouds.png'))
+            .setBackgroundImage(makeImage(CDN + '/gas-stove-bg.jpg'))
             .setTextContent(makePlainText(params.displayText))
             .build();
 
