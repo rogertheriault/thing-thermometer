@@ -54,7 +54,7 @@ const languageStrings = {
 const speechText = {
     WELCOME_MESSAGE: [
         "Welcome, are we cooking today? ",
-        "Hello, what delicious recipe would you like to cook? "
+        "Hello, what would you like to cook? "
     ],
     HELP_MESSAGE: [
         'You can make ' + help_options + ', or you can set the thermometer. ',
@@ -315,8 +315,6 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             this.attributes['timestamp'] = Date.now();
             this.attributes['started'] = Date.now();
 
-            // set the desired device state
-            this.emit(':saveState', true);
             updateDevice.call(this, {desired, responseText, displayText});
         } else {
             this.emit(':elicitSlot', "foodToCook", "I can make " + help_options +
