@@ -671,9 +671,16 @@ function getRandomItem(optionKey) {
 }
 
 /**
- * display a template and end
+ * display a response, with template (if supported), and end, saving state
  * 
- * all params are optional
+ * This is a catch-all to handle optional display template output prior
+ * to returning control to the user
+ * 
+ * Invoke with showTemplate.call(this, params) to pass the context
+ * 
+ * all params are optional, but responseText is highly recommended unless
+ * you've used this.response.speak() prior to calling showTemplate()
+ * 
  * responseText - will be spoken
  * displayText - will appear in template
  * prompt - add a listen
