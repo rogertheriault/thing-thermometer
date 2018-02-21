@@ -96,6 +96,15 @@ const handlers = {
         console.log('getStatusIntent');
         verifyThing.call(this, 'getStatusIntent', states.START);
     },
+    // for now, send general help to the recipe options
+    'AMAZON.HelpIntent': function() {
+        console.log('HelpIntent');
+        verifyThing.call(this, 'recipeOptionsIntent', states.START);
+    },
+    'recipeOptionsIntent': function() {
+        console.log('recipeOptionsIntent');
+        verifyThing.call(this, 'recipeOptionsIntent', states.START);
+    },
     'cookSomethingIntent': function() {
         console.log('cookSomethingIntent');
         verifyThing.call(this, 'cookSomethingIntent', states.RECIPE);
@@ -142,10 +151,11 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         this.handler.state = states.RECIPE;
         this.emitWithState('cookSomethingIntent');
     },
-    'HelpIntent': function() {
-        console.log("START HelpIntent");
-        let speechOutput = getRandomItem('WELCOME_MESSAGE') + 
-            getRandomItem('WELCOME_HELP') + " <break time='.5s'/>"  +
+    // recipe help, user needs to know what they can cook
+    'recipeOptionsIntent': function() {
+        console.log("START recipeOptionsIntent");
+        let speechOutput = getRandomItem('HELP_MESSAGE') + 
+            " <break time='.5s'/>"  +
             getRandomItem('HELP_REPROMPT');
         this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
         this.emit(":responseReady");
