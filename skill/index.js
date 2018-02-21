@@ -356,16 +356,22 @@ exports.handler = function (event, context, callback) {
  * 
  * This is reasonably fast but we might also want to try Alexa's new async
  * responses i.e. Progressive Response
+ * 
+ * Note we might enter this code from the START or RECIPE state
  */
 function getDeviceStatus() {
+    // sess will point to "this" in the async callbacks
     let sess = this;
     console.log("getting device status");
     let thingId = this.attributes["thingId"];
     if ( !thingId ) {
         console.log("Get device: no id");
-        // TODO handle this
+        // TODO handle this, it should be caught by earlier code 99% of the time
+        this.emit(':tell', "You don't seem to have a device");
         return false;
     }
+    // TODO wrap this into a helper
+    // get the thing shadow and report back to user
     var thing = new AWS.IotData({endpoint: process.env.THING_API});
     var params = {
         thingName: thingId
@@ -375,7 +381,9 @@ function getDeviceStatus() {
             // do something
             console.log('getThingShadow error:');
             console.log(err);
+            // fall through to error response
         } else {
+            // retrieved shadow state
             console.log('getThingShadow success:');
             console.log(data);
             var shadow = JSON.parse(data.payload);
@@ -386,35 +394,64 @@ function getDeviceStatus() {
             let mode = reported.mode || "";
             let cooking = "thermometer";
             let recipe = false;
+            let currentRecipe = {};
             if ( mode && mode !== "measure" ) {
-                cooking = "Yogurt";
                 recipe = true;
+                // TODO bundle this into a helper
+                // get the current step from the user's state
+                currentRecipe = sess.attributes["recipe"];
             }
-            if (reported.temperature && reported.temperature !== 0 && reported.temperature < 2000) {
+            // if the temperature makes sense, format a response
+            if (reported.temperature && 
+                reported.temperature !== 0 && 
+                reported.temperature < 2000) {
+
+                let currentTemp = reported.temperature;//.value;
+                let units = "celsius";// TODO use shadow.state.reported.temperature.units;
+                let txtUnits = (units === "fahrenheit") ? "F" : "C";
+
+                let responseText = "The thermometer is reporting " + 
+                    currentTemp + " degrees. ";
                 // if in a recipe, show the step and check if we should go to the
                 // next step, otherwise just show the temperature
-                let currentTemp = reported.temperature;//.value;
-                let units = "celsius";//shadow.state.reported.temperature.units;
-                let txtUnits = (units === "fahrenheit") ? "F" : "C";
-                let step = reported.step || 0;
-                let recipeName = reported.mode || ""; // TODO
-                let reached = false;
-                let targetTemp = false;
                 if (recipe) {
+                    let stepid = reported.step || sess.attributes["step"];
+                    let currentStep = currentRecipe.steps.find(step => step.step == stepid);
+                    let reached = false;
+                    let targetTemp = false;
                     console.log("in recipe");
-                    let step = sess.attributes['step'];
+
+                    // format a message if the temperature was reached
                     if (reported.alarm_high) {
                         targetTemp = reported.alarm_high;
-                        reached = (reported.alarm_high <= reported.temperature);
+                        reached = (targetTemp <= reported.temperature) ?
+                            "exceeded " + targetTemp + " degrees " :
+                            false;
                     }
-                    if (reported.alarm_low) {
+                    if (!reached && reported.alarm_low) {
                         targetTemp = reported.alarm_low;
-                        reached = reached || (reported.alarm_low >= reported.temperature);
+                        reached = (targetTemp >= reported.temperature) ?
+                            "gone below " + targetTemp + " degrees " :
+                            false;
                     }
                     let reportTarget = "";
                     if (targetTemp) {
                         reportTarget = "Target " + targetTemp + "°" + txtUnits + (reached ? " REACHED" : "")
                     }
+                    let recipeName = currentRecipe.title;
+                    // append to the spoken response
+                    responseText += "You're making " + recipeName + ". ";
+                    if (reached) {
+                        responseText += " You've " + reached + 
+                            " and can go to the next recipe step. ";
+                    }
+                    let prompt = "What would you like to do next?";
+                    let displayText = "Making " + recipeName + "\n" +
+                        currentStep.summary + "\n" +
+                        "Temperature " + currentTemp + "°" + txtUnits + "\n" +
+                        reportTarget;
+                    showTemplate.call(sess, {responseText, prompt, displayText});
+                    /*
                     sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
                         units, sess.t('SKILL_NAME'),
                         "Making " + recipeName + "\n" +
@@ -422,12 +459,18 @@ function getDeviceStatus() {
                         "Temperature " + currentTemp + "°" + txtUnits + "\n" +
                         reportTarget
                     );
+                    */
 
                 } else {
+                    // not in a recipe, no prompt
+                    let displayText = "Thermometer:\n" + currentTemp + "°" + txtUnits;
+                    showTemplate.call(sess, {responseText, displayText});
+                    /*
                     sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
                         units, sess.t('SKILL_NAME'),
                         "Thermometer:\n" + currentTemp + "°" + txtUnits
                     );
+                    */
                 }
                 return;
             } else {
@@ -435,6 +478,7 @@ function getDeviceStatus() {
                 return;
             }
         }
+        // we really shouldn't arrive here
         alexa.emit(':tell', "I'm sorry Dave, I can't do that");
     });
 }
@@ -442,18 +486,27 @@ function getDeviceStatus() {
 /*
  * request a device shadow change and then respond to the user
  * 
- * We're passing the Alexa reference so we can call it
+ * update contains these attributes:
+ * * desired - the desired state to send
+ * * responseText - text for Alexa to speak (optional)
+ * * prompt - an optional question to ask (optional)
+ * * displayText - text to put on a device, if supported (optional)
  */
 function updateDevice(update) {
     console.log("controlling a device");
     console.log(JSON.stringify(update));
+
+    // the user's thing id to update
     let thingId = this.attributes["thingId"];
+    // save "this" so the callback can reference it
     let sess = this;
     if ( !thingId ) {
         console.log('Update: no device id');
         return;
     }
+    // IotData is the IoT API
     var thing = new AWS.IotData({endpoint: process.env.THING_API});
+    // set up the data to send to the API
     var payload = { 
         state: {
             desired: update.desired
@@ -463,9 +516,12 @@ function updateDevice(update) {
         thingName: thingId,
         payload: JSON.stringify(payload)
     };
+    // Perform the update. The callback receives the result
     thing.updateThingShadow(params, function (err, data) {
         console.log("returned from shadow update");
         console.log(update);
+
+        // err is an error, log it until we see some real ones
         if (err) {
             // do something
             console.log('updateThingShadow error:');
@@ -474,6 +530,8 @@ function updateDevice(update) {
         } else {
             console.log('updateThingShadow success:');
             console.log(data);
+            // if the responseText is set, then call showTemplate
+            // to respond to the user with voice and text on supported devices
             if ( update.responseText ) {
                 showTemplate.call(sess, update);
             }
@@ -622,13 +680,19 @@ function getRandomItem(optionKey) {
  */
 function showTemplate(params) {
 
+    // if prompt is present, then speak & ask, else just speak
     if ( params.responseText ) {
-        console.log("speaking: " + params.responseText)
-        this.response.speak(params.responseText);
-    }
-    if ( params.prompt ) {
-        console.log("listening: " + params.prompt)
-        this.response.listen(params.prompt);
+        if ( params.prompt ) {
+            console.log("speaking/listening: " + 
+                params.responseText + " <break time='.5s'/>" + params.prompt)
+            this.response
+                .speak(params.responseText + " " + params.prompt)
+                .listen(params.prompt);
+        } else {
+            console.log("speaking: " + params.responseText)
+            this.response
+                .speak(params.responseText);
+        }
     }
     if (params.displayText && supportsDisplay.call(this)) {
         // utility methods for creating Image and TextField objects
