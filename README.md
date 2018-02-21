@@ -6,7 +6,8 @@
 
 This project includes Arduino code for the thermometer device,
 and AWS Lambda code for the Alexa Skill
-plus directions on getting everything set up
+
+You'll find [directions on getting everything set up at Hackster.io](https://www.hackster.io/rogertheriault/alexa-bbq-kitchen-thermometer-with-iot-arduino-and-e-paper-63c64f)
 
 A temperature probe with a display can be controlled through Alexa:
 - choose a food to cook and the high or low alarm temperatures are set automatically
@@ -148,14 +149,4 @@ DS18B20 | black | GND
 - ArduinoJSON
 - ESP8266 hardware libraries
 
-## Setting Up AWS
-### Create a Thing
-### Create a lambda Role
-### Create the lambda function
-## Setting Up Amazon Alexa
-### Create a new Skill
-## Build the Thermometer
-### Set up Arduino IDE
-### Load and build the code
-### Flash the device
-### Test
+See [Hackster.io](https://www.hackster.io/rogertheriault/alexa-bbq-kitchen-thermometer-with-iot-arduino-and-e-paper-63c64f) for a build walkthrough
