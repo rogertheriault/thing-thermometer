@@ -17,13 +17,17 @@
 // include the AWS SDK so we can access IoT and DynamoDB
 const AWS = require('aws-sdk');
 
+// support promise type stuff awkwardly still
 const async = require("async");
 
+// The Alexa SDK is helpful for template and state management
 const Alexa = require('alexa-sdk');
 
+// CDN URL for the background image and other assets
 const CDN = process.env.CDN;
 // if the URL is not set, default to the original github url
 const PROJECT_SHORTURL = process.env.PROJECT_SHORTURL || "https://git.io/vAIQI";
+// TODO put this in the CDN too
 const recipes = require('./recipes.json');
 
 // Set up a list of recipes that can be used
@@ -51,6 +55,7 @@ const languageStrings = {
     },
 };
 
+// These strings can be used to create a random response from the list
 const speechText = {
     WELCOME_MESSAGE: [
         "Welcome, are we cooking today? ",
@@ -171,6 +176,7 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
         this.emit(":responseReady");
     },
+    // Yes, simulate a thermometer. Not very useful!
     // this is just in place to (a) support certification and (b) satisfy folks
     // who might be too impatient to make their own
     // it is not enabled by default!
@@ -183,6 +189,9 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         console.log("START CancelIntent");
         this.emit(':tell', getRandomItem('STOP_MESSAGE'));
     },
+    // This might be overkill, but assuming at this stage, we shouldn't be IN 
+    // a recipe (state = START)
+    // so this might fix invalid states
     'AMAZON.StopIntent': function () {
         let responseText = "Stopping your recipe now."
         desired.alarm_high = 0;
