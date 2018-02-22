@@ -180,7 +180,8 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         createSimulatedThing.call(this);
     },
     'AMAZON.CancelIntent': function () {
-        this.emit('AMAZON.StopIntent');
+        console.log("START CancelIntent");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
     },
     'AMAZON.StopIntent': function () {
         let responseText = "Stopping your recipe now."
@@ -237,6 +238,8 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         this.attributes["step"] = undefined;
         this.attributes["started"] = undefined;
         this.attributes["timestamp"] = Date.now();
+        // return to START state
+        this.handler.state = states.START;
         updateDevice.call(this, {desired, responseText});
     },
 
@@ -249,7 +252,8 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         if ( ! currentRecipe ) {
             // this shouldn't happen unless states get messed up
             console.log("ERROR: user in RECIPE state but not in a recipe");
-            this.emit(':tell', "I'm sorry, you're not cooking anything right now.");
+            this.handler.state = states.START;
+            this.emitWithState(':tell', "I'm sorry, you're not cooking anything right now.");
             return;
         }
         
@@ -329,10 +333,12 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             const recipe = getRecipe(food);
             console.log( recipe );
             if ( !recipe ) {
-                responseText = "I can't handle making " + food + " yet, Sorry." +
-                    "Would you like to cook something else?";
-                    // TODO " Would you like to set the high or low temperature?";
-                this.emit(':ask', responseText, "Please say that again?");
+                responseText = "I can't handle making " + food + " yet, sorry. ";
+                this.handler.state = states.START;
+                showTemplate.call(this, {
+                    responseText,
+                    prompt: "Would you like to cook something else?"
+                });
                 return;
             }
             // get the first step or the step with step = 1
@@ -362,19 +368,20 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         }
 
     },
-    // user may have said no to "Which would you like"
+    // user may have said no to "What would you like to do?"
     'AMAZON.CancelIntent': function () {
         console.log("RECIPE CancelIntent");
-        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
     },
     'AMAZON.NoIntent': function () {
         console.log("RECIPE NoIntent");
-        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
     },
 
     'SessionEndedRequest': function () {
         console.log("SESSION ENDED");
-        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+        this.handler.state = states.START;
+        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
     },
     "Unhandled": function() {
         console.log("RECIPE Unhandled event");
@@ -503,7 +510,8 @@ function getDeviceStatus() {
                     showTemplate.call(sess, {responseText, prompt, displayText});
 
                 } else {
-                    // not in a recipe, no prompt
+                    // not in a recipe, no prompt (and set START state just in case)
+                    sess.handler.state = states.START;
                     let displayText = "Thermometer:<br/><b>" + currentTemp + "°" + txtUnits + "</b>";
                     showTemplate.call(sess, {responseText, displayText});
                 }
