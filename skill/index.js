@@ -340,7 +340,7 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
                 return (curr.step === 1) ? curr : prev;
             });
             responseText = recipe.speak + " " + firstStep.speak;
-            displayText = "Making " + recipe.title + "\n" + firstStep.display;
+            displayText = "Making " + recipe.title + "<br/>" + firstStep.display;
 
             let desired = {};
             desired.alarm_high = firstStep.alarm_high || null;
@@ -362,6 +362,16 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         }
 
     },
+    // user may have said no to "Which would you like"
+    'AMAZON.CancelIntent': function () {
+        console.log("RECIPE CancelIntent");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+    },
+    'AMAZON.NoIntent': function () {
+        console.log("RECIPE NoIntent");
+        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+    },
+
     'SessionEndedRequest': function () {
         console.log("SESSION ENDED");
         this.emit(':tell', getRandomItem('STOP_MESSAGE'));
@@ -486,31 +496,16 @@ function getDeviceStatus() {
                             " and can go to the next recipe step. ";
                     }
                     let prompt = "What would you like to do next?";
-                    let displayText = "Making " + recipeName + "\n" +
-                        currentStep.summary + "\n" +
-                        "Temperature " + currentTemp + "°" + txtUnits + "\n" +
-                        reportTarget;
+                    let displayText = "Making " + recipeName + "<br/>" +
+                        currentStep.summary + "<br/>" +
+                        "<b>" + currentTemp + "°" + txtUnits + "</b><br/>" +
+                        "<font size=\"2\">" + reportTarget + "</font>";
                     showTemplate.call(sess, {responseText, prompt, displayText});
-                    /*
-                    sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
-                        units, sess.t('SKILL_NAME'),
-                        "Making " + recipeName + "\n" +
-                        "Step " + step + "\n" +
-                        "Temperature " + currentTemp + "°" + txtUnits + "\n" +
-                        reportTarget
-                    );
-                    */
 
                 } else {
                     // not in a recipe, no prompt
-                    let displayText = "Thermometer:\n" + currentTemp + "°" + txtUnits;
+                    let displayText = "Thermometer:<br/><b>" + currentTemp + "°" + txtUnits + "</b>";
                     showTemplate.call(sess, {responseText, displayText});
-                    /*
-                    sess.emit(':tellWithCard', "The thermometer is reporting " + currentTemp + " degrees " +
-                        units, sess.t('SKILL_NAME'),
-                        "Thermometer:\n" + currentTemp + "°" + txtUnits
-                    );
-                    */
                 }
                 return;
             } else {
@@ -681,18 +676,19 @@ function verifyThing(nextIntent, nextState) {
             let displayText = "This skill demonstrates controlling an IoT device with Alexa " +
                 "and Arduino. You can create your own device and Alexa skill " +
                 "with the instructions at the following link: " + PROJECT_SHORTURL;
+
+            // virtual device (optional and not enabled by default)
             if (process.env.SIMULATE_GROUP) {
                 displayText += " \nIf you'd like to simulate the device, " +
                     "try 'Alexa, ask Kitchen Helper to simulate a thermometer'.";
             }
+
             // TODO account linking card and instructions
             // For development use this should suffice
             this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
                 displayText );
             return;
 
-            // TODO continue with a virtual device? (ie web-based simulated thing)
-            // or allow recipe info mode
         }
         // user does have a connected Thermometer Thing
         this.handler.state = nextState;
@@ -747,14 +743,14 @@ function showTemplate(params) {
     }
     if (params.displayText && supportsDisplay.call(this)) {
         // utility methods for creating Image and TextField objects
-        const makePlainText = Alexa.utils.TextUtils.makePlainText;
+        const makeRichText = Alexa.utils.TextUtils.makeRichText;
         const makeImage = Alexa.utils.ImageUtils.makeImage;
 
         const builder = new Alexa.templateBuilders.BodyTemplate1Builder();
 
         const template = builder.setTitle(this.t('SKILL_NAME'))
             .setBackgroundImage(makeImage(CDN + '/gas-stove-bg.jpg'))
-            .setTextContent(makePlainText(params.displayText))
+            .setTextContent(makeRichText(params.displayText))
             .build();
 
         console.log("template: " + params.displayText)
