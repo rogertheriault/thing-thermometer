@@ -44,7 +44,7 @@ const languageStrings = {
         translation: {
             SKILL_NAME: 'Kitchen Helper',
             NOW_LETS_COOK: "OK, the thermometer is ready to go! ",
-            HELP_MESSAGE: 'You can make ' + help_options + ', or you can set the thermometer. What can I help you with?',
+            HELP_MESSAGE: 'You can make ' + help_options + '. What can I help you with?',
             HELP_REPROMPT: 'What can I help you with?',
             STOP_MESSAGE: 'Goodbye!',
         },
@@ -57,7 +57,7 @@ const speechText = {
         "Hello, what would you like to cook? "
     ],
     HELP_MESSAGE: [
-        'You can make ' + help_options + ', or you can set the thermometer. ',
+        'You can make ' + help_options + '. ',
         'You can cook a recipe, the choices are ' + help_options + '. '
     ],
     HELP_REPROMPT: [
@@ -66,19 +66,13 @@ const speechText = {
     ],
     STOP_MESSAGE: 'Goodbye!',
 }
-// utility methods for creating Image and TextField objects
-//const makePlainText = Alexa.utils.TextUtils.makePlainText;
-//const makeImage = Alexa.utils.ImageUtils.makeImage;
 
 // OUR CUSTOM INTENTS
 // cookSomething {foodToCook} (starts the recipe)
-// changeTemperature {heatOrCool,newTemp}
 // getStatus
 // nextStep
 // SLOTS
 // foodToCook = yogurt, ricotta
-// heatOrCool = heat, cool
-// newTemp = ??
 
 const states = {
     START: "_START",
@@ -87,6 +81,7 @@ const states = {
 
 // default when no state is set (new session)
 // all new sessions must call verifyThing
+// verifyThing then routes control to the next intent handler and state
 const handlers = {
     'LaunchRequest': function () {
         console.log('LaunchRequest');
@@ -109,6 +104,15 @@ const handlers = {
         console.log('cookSomethingIntent');
         verifyThing.call(this, 'cookSomethingIntent', states.RECIPE);
     },
+    'cancelRecipeIntent': function() {
+        console.log('cancelRecipeIntent');
+        verifyThing.call(this, 'cancelRecipeIntent', states.RECIPE);
+    },
+    'enableSimulationIntent': function() {
+        console.log('enableSimulationIntent');
+        // let this function handle all the logic
+        createSimulatedThing.call(this);
+    },
     'SessionEndedRequest': function () {
         console.log("SESSION ENDED");
         this.emit(':tell', getRandomItem('STOP_MESSAGE'));
@@ -121,13 +125,14 @@ const handlers = {
     }
 }
 
+// These handlers support the user after they's started a session, but are not in a recipe
 const sessHandlers = Alexa.CreateStateHandler(states.START, {
     'LaunchRequest': function () {
         console.log('START LaunchRequest');
         verifyThing.call(this, 'Welcome', states.START);
     },
     'Welcome': function () {
-        // user not cooking
+        // user not cooking - ask them what they would like to cook
         // If the user was in a recipe, the Welcome handler for RECIPE state
         // should have received control
         let speechOutput = getRandomItem('WELCOME_MESSAGE');
@@ -141,15 +146,21 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
     },
     'nextStepIntent': function () {
         console.log('START nextStepIntent');
-        // not in recipe mode, so just tell the user
+        // not in recipe mode, so just tell the user they cannot do this
         let speechOutput = "You're not in a recipe right now. What would you like to cook? ";
         this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
         this.emit(":responseReady");
     },
-    // user has said they want to cook something
+    // user has said they want to cook something, go to the RECIPE state
     'cookSomethingIntent': function () {
+        console.log('START cookSomethingIntent');
         this.handler.state = states.RECIPE;
         this.emitWithState('cookSomethingIntent');
+    },
+    'cancelRecipeIntent': function () {
+        console.log('START cancelRecipeIntent');
+        this.handler.state = states.RECIPE;
+        this.emitWithState('cancelRecipeIntent');
     },
     // recipe help, user needs to know what they can cook
     'recipeOptionsIntent': function() {
@@ -159,6 +170,14 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
             getRandomItem('HELP_REPROMPT');
         this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
         this.emit(":responseReady");
+    },
+    // this is just in place to (a) support certification and (b) satisfy folks
+    // who might be too impatient to make their own
+    // it is not enabled by default!
+    'enableSimulationIntent': function() {
+        console.log('START enableSimulationIntent');
+        // let this function handle all the logic
+        createSimulatedThing.call(this);
     },
     'AMAZON.CancelIntent': function () {
         this.emit('AMAZON.StopIntent');
@@ -208,10 +227,11 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
     // cancel the recipe
     'cancelRecipeIntent': function () {
         console.log('RECIPE cancelRecipeIntent');
-        responseText = "Stopping any active recipe now."
+        let responseText = "Stopping any active recipe now."
+        let desired = {};
         desired.alarm_high = 0;
         desired.alarm_low = 0;
-        desired.mode = "";
+        desired.mode = "measure";
         desired.step = 0;
         this.attributes["recipe"] = undefined;
         this.attributes["step"] = undefined;
@@ -223,15 +243,17 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
     // proceed to the next step of the recipe (or finish it)
     'nextStepIntent': function () {
         console.log('RECIPE nextStepIntent');
-        // get user's state and then get the next step and update the device
-        //thingId = getThingId(this);
         console.log(JSON.stringify(this.attributes));
+        // get user's state and then get the next step and update the device
         let currentRecipe = this.attributes["recipe"];
         if ( ! currentRecipe ) {
+            // this shouldn't happen unless states get messed up
+            console.log("ERROR: user in RECIPE state but not in a recipe");
             this.emit(':tell', "I'm sorry, you're not cooking anything right now.");
             return;
         }
         
+        // get the current step
         let stepid = this.attributes["step"];
         let currentStep = currentRecipe.steps.find(step => step.step == stepid);
 
@@ -260,6 +282,7 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             return (curr.step === stepid) ? curr : prev;
         })
         
+        // if there's no next step, go to idle mode
         if (!newStep || newStep.recipe === "complete") {
             // last step, no need to save the state, in fact,
             // it needs to be removed
@@ -272,17 +295,21 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             // save state
             this.attributes['step'] = stepid;
         }
+        // at some point we might have to "clean up" (discard) ancient states
         this.attributes['timestamp'] = Date.now();
         
+        // compose a response, from the recipe data
         let responseText = newStep.speak;
         let displayText = newStep.display; // TODO more info
 
+        // set up the desired shadow state for the device
         let desired = {};
         desired.alarm_high = newStep.alarm_high || null;
         desired.alarm_low = newStep.alarm_low || null;
         desired.timer = newStep.timer || null;
         desired.step = stepid;
 
+        // update the device and then respond to the user
         updateDevice.call(this, {desired, responseText, displayText});
     },
 
@@ -297,11 +324,14 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         if (slots.foodToCook.value) {
             const food = slots.foodToCook.value;
             console.log( food );
+
+            // attempt to retrieve the recive matching the food
             const recipe = getRecipe(food);
             console.log( recipe );
             if ( !recipe ) {
                 responseText = "I can't handle making " + food + " yet, Sorry." +
-                    " Would you like to set the high or low temperature?";
+                    "Would you like to cook something else?";
+                    // TODO " Would you like to set the high or low temperature?";
                 this.emit(':ask', responseText, "Please say that again?");
                 return;
             }
@@ -401,7 +431,7 @@ function getDeviceStatus() {
             let reported = shadow.state.reported;
             // TODO handle no reported structure
 
-            let mode = reported.mode || "";
+            let mode = reported.mode || "measure";
             let cooking = "thermometer";
             let recipe = false;
             let currentRecipe = {};
@@ -647,10 +677,14 @@ function verifyThing(nextIntent, nextState) {
         if ( ! thingId ) {
             let speechOutput = "You'll need to set up a thermometer first. " +
                 "I've added a link to your Alexa app with information about " +
-                "creating your own thermometer";
+                "creating your own thermometer.";
             let displayText = "This skill demonstrates controlling an IoT device with Alexa " +
-                "and Arduino. You can create your own device with the instructions at the " +
-                "following link: " + PROJECT_SHORTURL;
+                "and Arduino. You can create your own device and Alexa skill " +
+                "with the instructions at the following link: " + PROJECT_SHORTURL;
+            if (process.env.SIMULATE_GROUP) {
+                displayText += " \nIf you'd like to simulate the device, " +
+                    "try 'Alexa, ask Kitchen Helper to simulate a thermometer'.";
+            }
             // TODO account linking card and instructions
             // For development use this should suffice
             this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
@@ -730,3 +764,111 @@ function showTemplate(params) {
     this.emit(':saveState', true)
     this.emit(':responseReady');
 }
+
+
+/**
+ * totally optional unnecessary simulation utilities
+ * 
+ * create a random thing id if a user requests a simulation
+ * attach it to the user's id
+ * the simulated thing is put in a special group and a lambda updates the state
+ * of each thing once a minute
+ */
+function createSimulatedThing() {
+    let maybeThing = this.attributes["thingId"];
+    if (maybeThing) {
+        if (maybeThing.substr(0,4) === "SIM_") {
+            // no point in doing this twice
+            this.emit(":tell", "You already have a simulated thermometer.");
+        } else {
+            // user actually has a real device, yay!
+            this.emit(":tell", "You don't need a simulation.");
+        }
+        return;
+    }
+
+    // general catch-all phrase if something doesn't work
+    const oops = "Sorry, simulations are not available right now";
+    if (!process.env.SIMULATE_GROUP) {
+        this.emit(":tell", oops);
+    }
+    const iot = new AWS.Iot();
+    // preserve this in callbacks
+    let sess = this;
+
+    // create a thing
+    const thingId = randomID();
+    iot.createThing({thingName: thingId}, function(err, data) {
+        if (err) {
+            sess.emit(":tell", oops);
+            return;
+        }
+        if (data) {
+            // add it to the simulation group
+            iot.addThingToThingGroup({
+                thingName: thingId,
+                thingGroupName: process.env.SIMULATE_GROUP
+            }, function(err, data) {
+                if (err) {
+                    sess.emit(":tell", oops);
+                    return;
+                }
+                if (data) {
+                    // add it to dynamDB
+                    let userId = sess.event.session.user.userId;
+                    // USER/DEVICES table for the thing Id
+                    const ddb = new AWS.DynamoDB({apiVersion: '2012-10-08'});
+
+                    var params = {
+                        TableName: process.env.DYNAMODB_THING_TABLE,
+                        Item: {
+                            "userId": {"S": userId},
+                            "thingId": {"S": thingId}
+                        }
+                    };
+
+                    let putItemPromise = ddb.putItem(params).promise();
+                    putItemPromise.then( (data) => {
+
+                        // create the first state and let the user know
+                        const iotdata = new AWS.IotData({endpoint: process.env.THING_API});
+                        let newState = {
+                            reported: {
+                                temperature: 15
+                            }
+                        }
+                        iotdata.updateThingShadow({
+                            thingName: thingId,
+                            payload: JSON.stringify({state: newState})
+                        }, function(err, data) {
+                            if (err) {
+                                console.log(err);
+                                sess.emit(":tell", oops);
+                                return;
+                            }
+                            console.log(data);
+                            if (data) {
+                                // it all worked, whew
+                                sess.attributes["thingId"] = thingId;
+                                let params = {
+                                    responseText: "I've set up a simulated thermometer for you. ",
+                                    displayText: "Simulation Enabled",
+                                    prompt: "What would you like to do?"
+                                }
+                                showTemplate.call(sess, params);
+                            }
+                        });
+                    });
+                }
+            })
+        }
+    })
+}
+
+// see https://gist.github.com/gordonbrander/2230317
+function randomID() {
+    // Math.random should be unique because of its seeding algorithm.
+    // Convert it to base 36 (numbers + letters), and grab the first 9 characters
+    // after the decimal.
+    return 'SIM_' + Math.random().toString(36).substr(2, 9);
+};
