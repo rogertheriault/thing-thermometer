@@ -1,0 +1,15 @@
+{
+  "name": "simulation",
+  "version": "1.0.0",
+  "description": "a simulation tool for making fake things change state",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.200.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Roger Theriault",
+  "license": "MIT"
+}
