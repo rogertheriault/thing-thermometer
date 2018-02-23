@@ -137,6 +137,7 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         verifyThing.call(this, 'Welcome', states.START);
     },
     'Welcome': function () {
+        console.log('START Welcome');
         // user not cooking - ask them what they would like to cook
         // If the user was in a recipe, the Welcome handler for RECIPE state
         // should have received control
@@ -167,6 +168,19 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
         this.handler.state = states.RECIPE;
         this.emitWithState('cancelRecipeIntent');
     },
+    // asking for help should provide a different response than the options list
+    'AMAZON.HelpIntent': function() {
+        console.log('START HelpIntent');
+        let speechOutput = "You can say cook a specific recipe, ask for " +
+            " a list of recipes, or just get the thermometer status." +
+            " <break time='.5s'/>"  +
+            "When you're cooking something, you can go to the next step, get the " +
+            "status, or cancel the recipe." +
+            " <break time='.5s'/>"  +
+            getRandomItem('HELP_REPROMPT');
+        this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
+        this.emit(":responseReady");
+    },
     // recipe help, user needs to know what they can cook
     'recipeOptionsIntent': function() {
         console.log("START recipeOptionsIntent");
@@ -187,13 +201,15 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
     },
     'AMAZON.CancelIntent': function () {
         console.log("START CancelIntent");
-        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
     },
     // This might be overkill, but assuming at this stage, we shouldn't be IN 
     // a recipe (state = START)
     // so this might fix invalid states
     'AMAZON.StopIntent': function () {
-        let responseText = "Stopping your recipe now."
+        console.log('START StopIntent');
+        let responseText = "OK, goodbye."
+        let desired = {};
         desired.alarm_high = 0;
         desired.alarm_low = 0;
         desired.mode = "";
@@ -206,7 +222,7 @@ const sessHandlers = Alexa.CreateStateHandler(states.START, {
     },
     'SessionEndedRequest': function () {
         console.log("SESSION ENDED");
-        this.emit(':tell', getRandomItem('STOP_MESSAGE'));
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
     },
     "Unhandled": function() {
         console.log("START Unhandled event");
@@ -234,7 +250,7 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
         console.log('RECIPE getStatusIntent');
         getDeviceStatus.call(this);
     },
-    // cancel the recipe
+    // "cancel the recipe" - must be explicit, to avoid accidentally cancelling
     'cancelRecipeIntent': function () {
         console.log('RECIPE cancelRecipeIntent');
         let responseText = "Stopping any active recipe now."
@@ -262,7 +278,10 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             // this shouldn't happen unless states get messed up
             console.log("ERROR: user in RECIPE state but not in a recipe");
             this.handler.state = states.START;
-            this.emitWithState(':tell', "I'm sorry, you're not cooking anything right now.");
+            showTemplate.call(this, {
+                responseText: "I'm sorry, you're not cooking anything right now.",
+                prompt: "What else can I help you with?"
+            });
             return;
         }
         
@@ -329,7 +348,23 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
     // start cooking
     'cookSomethingIntent': function () {
         console.log('RECIPE cookSomethingIntent');
-        console.log("User state: " + this.attributes["step"]);
+
+        // DO NOT proceed further if we're in a recipe...
+        if (this.attributes["step"] || this.attributes["recipe"]) {
+            console.log("User state: " + this.attributes["step"]);
+            let food = this.attributes["recipe"].title || 'something';
+
+            showTemplate.call(this, {
+                responseText: "You're already cooking " + food + ". " +
+                    "To cook something else, just say 'cancel the recipe' first.",
+                prompt: "What would you like to do?"
+            });
+            return;
+        }
+
+
+        // No active recipe - make sure we have a recipe for the foodToCook slot
+
         // handle cooking yogurt or ricotta cheese
         const slots = this.event.request.intent.slots;
         let responseText = "";
@@ -342,6 +377,8 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
             const recipe = getRecipe(food);
             console.log( recipe );
             if ( !recipe ) {
+                console.log("Unknown recipe: " + food);
+                // TODO log a list of food requests
                 responseText = "I can't handle making " + food + " yet, sorry. ";
                 this.handler.state = states.START;
                 showTemplate.call(this, {
@@ -372,25 +409,43 @@ const recipeHandlers = Alexa.CreateStateHandler(states.RECIPE, {
 
             updateDevice.call(this, {desired, responseText, displayText});
         } else {
+            console.log("Asking for a foodToCook");
             this.emit(':elicitSlot', "foodToCook", "I can make " + help_options +
                 ", Which would you like?", "Please say that again?");
         }
 
     },
+    // An explicit "cancel the recipe" is handled by the cancelRecipeIntent
     // user may have said no to "What would you like to do?"
+    // Just quit
+    'AMAZON.StopIntent': function () {
+        console.log("RECIPE StopIntent");
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
+    },
     'AMAZON.CancelIntent': function () {
         console.log("RECIPE CancelIntent");
-        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
     },
     'AMAZON.NoIntent': function () {
         console.log("RECIPE NoIntent");
-        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
+    },
+
+    // asking for help here should explain what you can do WHILE cooking
+    'AMAZON.HelpIntent': function() {
+        console.log('START HelpIntent');
+        let speechOutput = 
+            "While you're cooking something, you can go to the next step, get the " +
+            "status, or to stop cooking, say 'cancel the recipe'." +
+            " <break time='.5s'/>"  +
+            getRandomItem('HELP_REPROMPT');
+        this.response.speak(speechOutput).listen(getRandomItem('HELP_REPROMPT'));
+        this.emit(":responseReady");
     },
 
     'SessionEndedRequest': function () {
         console.log("SESSION ENDED");
-        this.handler.state = states.START;
-        this.emitWithState(':tell', getRandomItem('STOP_MESSAGE'));
+        showTemplate.call(this, {responseText: getRandomItem('STOP_MESSAGE')});
     },
     "Unhandled": function() {
         console.log("RECIPE Unhandled event");
@@ -454,7 +509,7 @@ function getDeviceStatus() {
             console.log(data);
             var shadow = JSON.parse(data.payload);
             console.log(shadow);
-            let reported = shadow.state.reported;
+            let reported = shadow.state.reported || {};
             // TODO handle no reported structure
 
             let mode = reported.mode || "measure";
@@ -702,12 +757,14 @@ function verifyThing(nextIntent, nextState) {
 
             // TODO account linking card and instructions
             // For development use this should suffice
+            console.log("NO THING: Sending the info card to the user");
             this.emit(':tellWithCard', speechOutput, this.t('SKILL_NAME'),
                 displayText );
             return;
 
         }
         // user does have a connected Thermometer Thing
+        console.log("Thing found, jumping to " + nextState + ":" + nextIntent);
         this.handler.state = nextState;
         this.emitWithState(nextIntent);
     });
