@@ -8,6 +8,29 @@
  * It allows the user to control the thermometer alarm setpoints and obtain the
  * current temperature (and maybe one day, get notified of an alarm state)
  * 
+ * There are two main modes: START and RECIPE. RECIPE is the state during a
+ * recipe, returning to START when completely cooked.
+ * 
+ * Intents include:
+ * * cook something
+ * * general help
+ * * help with a list of what can be cooked
+ * * status request
+ * * (during a recipe) cancel the recipe or go to the next step
+ * * (optional) simulation / demo mode
+ * 
+ * Only one slot is used, the foodToCook
+ * 
+ * recipes.json is a resource that contains a list of recipes and steps
+ * A user can request one of these, if found, the recipe starts
+ * if not found the user is informed
+ * 
+ * To cook a recipe, the device shadow is updated with the desired mode and step
+ * To obtain thermometer status, a combination of the thing shadow and the user's
+ * state are used
+ * 
+ * The user's state is saved in dynamoDB using a feature of the Alexa SDK.
+ * 
  * Copyright (c) 2018 Roger Theriault
  * Licensed under the MIT license.
  **/
