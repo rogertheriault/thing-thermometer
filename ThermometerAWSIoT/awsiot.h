@@ -325,7 +325,7 @@ void updateShadow() {
 int arrivedcount = 0;
 
 // callback to handle thing shadow delta messages
-// these are settings that we must change to reflect the desired state
+// the delta is settings that we must change to reflect the desired state
 
 void messageArrived(MQTT::MessageData& md) {
   MQTT::Message &message = md.message;

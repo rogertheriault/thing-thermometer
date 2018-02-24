@@ -1,6 +1,6 @@
  
 /**
- * all the display settings (except pin assignments?)
+ * E-paper display code
  */
  
 #include <SPI.h>
