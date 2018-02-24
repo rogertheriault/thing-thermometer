@@ -13,6 +13,12 @@
  * * if there is a delta on the shadow, update the state to match
  * * and also update the target temps per the recipe
  * * finally, if we're on an idle step, return to idle mode "measure"
+ * 
+ * NOTE that at some point this code needs to be optimized so that
+ * we are:
+ * * not requesting shadow for devices that have been idle for a period of time
+ * * deleting devices and the related DynamoDB entries for long-idle devices
+ * * refactor the callback chain to make it more modular
  *
  */
 
@@ -83,7 +89,7 @@ exports.handler = (event, context, callback) => {
                             for ( var key in delta ) {
                                 newState.reported[key] = delta[key];
                             }
-                            let mode = delta.mode || state.reported.mode || measure;
+                            let mode = delta.mode || state.reported.mode || "measure";
                             let step = delta.step || 1;
                             newState.reported['alarm_low'] = 0;
                             newState.reported['alarm_high'] = 0;
