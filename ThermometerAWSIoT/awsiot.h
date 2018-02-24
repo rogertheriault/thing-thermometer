@@ -2,6 +2,8 @@
 // define your THING_ID in config.h (or, get from EEPROM)
 
 // these macros are used to set up the topic strings, THING_ID will be inserted in place of x
+// Note that to compile a generic executable and allow runtime
+// Thing ID setup, these would need to be real functions
 #define AWS_TOPIC_UPDATE(x) "$aws/things/"x"/shadow/update"
 #define AWS_TOPIC_SUBSCRIBE(x) "$aws/things/"x"/shadow/update/delta"
 
@@ -10,6 +12,7 @@
 // certificates, but seems a bit unstable.
 // A bit more experimentation is needed.
 
+// AWS IoT library that uses Websockets to communicate
 #include <AWSWebSocketClient.h>
 // MQTT PAHO
 #include <IPStack.h>
@@ -49,12 +52,14 @@ void setup_awsiot() {
 // connect to the WiFi router
 void setup_wifi() {
     WiFiMulti.addAP(WLAN_SSID, WLAN_PASS);
-    Serial.println ("connecting to wifi");
-    while(WiFiMulti.run() != WL_CONNECTED) {
+    Serial.println("connecting to wifi");
+    while (WiFiMulti.run() != WL_CONNECTED) {
         delay(100);
-        Serial.print (".");
+        Serial.print(".");
+        // TODO it might be better to simply reset the device if we are stuck here
+        // for a long time
     }
-    Serial.println ("\nconnected");
+    Serial.println("\nconnected");
 
     // update the state of the pixels
     pixel_wifidone();
@@ -66,6 +71,10 @@ void setup_wifi() {
  * This sends desired state rather than reported state... it happens when 
  * a user interactes with the device or the recipe ends and times out
  * 
+ * All this does is set the desired state in the device shadow, causing
+ * the device to change to that state.
+ * The state being the "no recipe" mode of "measure" step 0
+ * 
  * TODO add params
  */
 void doUpdateDesired() {
@@ -75,6 +84,7 @@ void doUpdateDesired() {
     
     MQTT::Message message;
     
+    // easier to construct the buffer by hand here than use ArduinoJSON
     //{"state":{"desired":{"mode":"measure","alarm_high":null,"alarm_low":null,"step":0}}}
 
     char buf[] = "{\"state\":{\"desired\":{\"mode\":\"measure\",\"alarm_high\":null,\"alarm_low\":null,\"step\":0}}}";
@@ -89,19 +99,25 @@ void doUpdateDesired() {
 
 /** 
  * mode timer logic, purpose is to give the user 60(or more?) seconds after the last 
- * step of a recipe
+ * step of a recipe, then change the state to idle
  * 
+ * TODO move to a Helpers file?
+ * TODO cancel the timer if something changes during the countdown (ie user starts
+ * a different recipe)
  */
-// TODO move to a Helpers file?
 boolean modeTimerSet = false;
 unsigned long modeTimerExpires;
 
+// this should be called when arriving at the last step of a recipe.
+// specify the number of seconds to wait before going idle
+// TODO add a callback, allow multiple timers
 void endRecipeMode(int seconds) {
   modeTimerSet = true;
   modeTimerExpires = millis() + seconds * 1000;
   // todo set what should be displayed
 }
 
+// this is called in the loop to see if the timer has expired
 void checkModeTimer() {
   if (! modeTimerSet) {
     return;
@@ -110,7 +126,7 @@ void checkModeTimer() {
   Serial.println((modeTimerExpires - millis()) / 1000);
   if (millis() >= modeTimerExpires) {
     modeTimerSet = false;
-    // TODO run a callback
+    // TODO run a callback that was set by the endRecipeMode() call
     doUpdateDesired();
   }
 }
@@ -138,6 +154,9 @@ void setRecipeStep(String recipeid, String step) {
     // TODO go to sleep after screen updates?
     return;
   }
+
+  // open the recipe JSON file, parse it, locate the recipe data for
+  // the given recipeid and step, update global state
     
   // Set current recipe info into our "state"
   File file = SPIFFS.open("/recipes.json", "r");
@@ -194,8 +213,6 @@ void setRecipeStep(String recipeid, String step) {
     }
     recipe_step_text = steptext;
     recipe_title = title;
-
-    // check alarm state
 
     // check recipe completion
     if ( isComplete ) {
@@ -280,6 +297,7 @@ void updateShadow() {
     JsonObject& state = payload.createNestedObject("state");
     JsonObject& reported = state.createNestedObject("reported");
     
+    // set up the reported state
     reported["temperature"] = currentTemp;
     reported["mode"] = cooking_mode;
 
@@ -291,6 +309,7 @@ void updateShadow() {
     payload.printTo(Serial);
     Serial.println();
 
+    // send the reported state to the device shadow
     char buf[201]; // TODO reduce more?
     payload.printTo(buf, 200);
     message.qos = MQTT::QOS0;

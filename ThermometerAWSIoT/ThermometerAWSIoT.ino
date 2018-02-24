@@ -71,7 +71,7 @@
 
 // I2C library
 #include <Wire.h>
-// I2C slave address
+// I2C slave address of the Arduino Uno slave (see ThermometerUI)
 #define SLAVE_I2C 8
 
 // SPIFFS filesystem
@@ -83,6 +83,7 @@
 #include <ESP8266HTTPClient.h>
 
 // globals for our state
+// Some of these might be better set via config file or recipes.json
 String default_step_text = "\"Alexa, ask Kitchen Helper to make yogurt\"";
 String default_title = "Kitchen Helper";
 String cooking_mode = "measure";

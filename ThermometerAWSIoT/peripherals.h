@@ -1,7 +1,13 @@
 
-// this code is involved with communicating and controlling the I2C slave
-// (an Arduino Uno with the ThermometerUI sketch)
-//
+/**
+ * this code is involved with communicating and controlling the I2C slave
+ * (an Arduino Uno with the ThermometerUI sketch)
+ * 
+ * The Arduino is an I2C slave that supports writing a command to it,
+ * one of a0 or a1 (turn alarm on & off) and sg, sr, sb (change LED shade
+ * to red, green, blue, etc)
+ * as well as reading a 6 byte buffer that contains 1-3 temperatures (in Celsius)
+ */
 
 // buffer size we expect from the slave
 #define REGISTER_LENGTH 6
